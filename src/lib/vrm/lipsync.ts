@@ -143,6 +143,40 @@ export function updateLipSync(vrm: VRM | null, ttsManager: TtsManager) {
 
 	let usedPhonemeMode = false;
 
+	// wLipSync MFCC mode — real-time phoneme detection from audio signal
+	const mfccWeights = ttsManager.getLipSyncWeights();
+	if (mfccWeights) {
+		// Hybrid: MFCC weights already include volume — just add gentle frequency detail
+		const bands = ttsManager.getFrequencyBands();
+
+		// MFCC weights (already scaled by wLipSync volume)
+		targetAa = mfccWeights.A;
+		targetIh = mfccWeights.I;
+		targetOu = mfccWeights.U;
+		targetEe = mfccWeights.E;
+		targetOh = mfccWeights.O;
+
+		// Blend in frequency band hints for subtle detail
+		if (bands) {
+			const { low, midLow, midHigh } = bands;
+			const blend = 0.15;
+			targetAa += low * audioAmplitude * blend;
+			targetOh += (low * 0.4 + midLow * 0.3) * audioAmplitude * blend;
+			targetIh += midLow * audioAmplitude * blend * 0.5;
+			targetEe += midHigh * audioAmplitude * blend * 0.5;
+			targetOu += (midHigh * 0.4 + low * 0.2) * audioAmplitude * blend * 0.5;
+		}
+
+		// Clamp
+		targetAa = Math.min(targetAa, 1.0);
+		targetIh = Math.min(targetIh, 0.8);
+		targetOu = Math.min(targetOu, 0.8);
+		targetEe = Math.min(targetEe, 0.8);
+		targetOh = Math.min(targetOh, 0.7);
+
+		usedPhonemeMode = true;
+	}
+
 	// Phoneme mode (Kokoro — has word boundaries + phoneme data)
 	if (hasValidTiming && currentWordBoundary && ttsManager.currentPhonemes) {
 		let wordPhonemes = '';
@@ -251,7 +285,7 @@ export function updateLipSync(vrm: VRM | null, ttsManager: TtsManager) {
 	}
 
 	// Smooth transitions — higher value = smoother/slower mouth movement
-	const smoothing = usedPhonemeMode ? 0.25 : 0.35;
+	const smoothing = mfccWeights ? 0.1 : usedPhonemeMode ? 0.25 : 0.35;
 	const smoothedAa = previousAa + (targetAa - previousAa) * (1 - smoothing);
 	const smoothedIh = previousIh + (targetIh - previousIh) * (1 - smoothing);
 	const smoothedOu = previousOu + (targetOu - previousOu) * (1 - smoothing);

@@ -1,4 +1,5 @@
 import { isKokoroReady, generateSpeechBlob, KOKORO_VOICES, type KokoroVoice } from './kokoro.js';
+import type { WLipSyncAudioNode, Profile as WLipSyncProfile } from 'wlipsync';
 
 // NOTE: Worker URL must be inline in `new Worker()` call so Vite
 // recognizes the pattern and bundles the worker as a proper JS file.
@@ -128,6 +129,7 @@ export class TtsManager {
 	audioAnalyser: AnalyserNode | null = null;
 	audioSource: MediaElementAudioSourceNode | null = null;
 	audioDataArray: Uint8Array<ArrayBuffer> | null = null;
+	lipsyncNode: WLipSyncAudioNode | null = null;
 
 	onSpeechStarted: (() => void) | null = null;
 	onSpeechFinished: (() => void) | null = null;
@@ -139,14 +141,36 @@ export class TtsManager {
 			try { await this.audioContext.close(); } catch { /* ignore */ }
 		}
 		this.audioSource = null;
+		this.lipsyncNode = null;
 		this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 		this.audioAnalyser = this.audioContext.createAnalyser();
 		this.audioAnalyser.fftSize = 256;
 		this.audioAnalyser.smoothingTimeConstant = 0.3;
 		this._analyserConnected = false;
 		this.audioDataArray = new Uint8Array(this.audioAnalyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
+		await this._initLipSyncNode();
 		this.startTtsWorker();
 		console.log('[TtsManager] Initialized with lip sync support');
+	}
+
+	async _initLipSyncNode() {
+		if (!this.audioContext) return;
+		try {
+			if (!_wlipsyncProfile) {
+				const resp = await fetch('/assets/lipsync-profile.json');
+				if (!resp.ok) throw new Error(`Profile fetch failed: ${resp.status}`);
+				_wlipsyncProfile = await resp.json();
+			}
+			const { createWLipSyncNode } = await import('wlipsync');
+			this.lipsyncNode = await createWLipSyncNode(this.audioContext, _wlipsyncProfile!);
+			// wLipSync is analysis-only (no audio output) — don't chain it into playback path
+			this.lipsyncNode.smoothness = 0.02;  // Faster than default 0.05 — less internal lag
+			this.lipsyncNode.blockSize = 256;     // Faster updates (256 samples vs default 512)
+			console.log('[TtsManager] wLipSync MFCC node created');
+		} catch (err) {
+			console.warn('[TtsManager] wLipSync init failed, using frequency-band fallback:', err);
+			this.lipsyncNode = null;
+		}
 	}
 
 	async speak(text: string) {
@@ -319,6 +343,7 @@ export class TtsManager {
 			this.audioContext.close().catch(() => { });
 		}
 		this.audioContext = null;
+		this.lipsyncNode = null;
 	}
 
 	initKokoroInWorker(options: { dtype?: KokoroDtype; device?: KokoroDevice } = {}) {
@@ -668,6 +693,7 @@ export class TtsManager {
 		const source = this.audioContext.createBufferSource();
 		source.buffer = audioBuffer;
 		source.connect(this.audioAnalyser);
+		if (this.lipsyncNode) source.connect(this.lipsyncNode);
 		this._ensureAnalyserConnected();
 
 		const now = this.audioContext.currentTime;
@@ -882,6 +908,7 @@ export class TtsManager {
 				}
 				this.audioSource = this.audioContext.createMediaElementSource(this.currentAudio);
 				this.audioSource.connect(this.audioAnalyser!);
+				if (this.lipsyncNode) this.audioSource.connect(this.lipsyncNode);
 				this._ensureAnalyserConnected();
 			} catch (e) {
 				console.warn('[TtsManager] Audio graph connect:', e);
@@ -1034,6 +1061,20 @@ export class TtsManager {
 		};
 	}
 
+	getLipSyncWeights(): { A: number; I: number; U: number; E: number; O: number } | null {
+		if (!this.lipsyncNode || !this.isPlaying) return null;
+		const w = this.lipsyncNode.weights;
+		const v = this.lipsyncNode.volume;
+		if (v < 0.01) return null;
+		return {
+			A: (w.A ?? 0) * v,
+			I: (w.I ?? 0) * v,
+			U: (w.U ?? 0) * v,
+			E: (w.E ?? 0) * v,
+			O: (w.O ?? 0) * v
+		};
+	}
+
 	async getFishVoices(): Promise<VoiceInfo[]> {
 		if (!this.fishApiKey) return [];
 		try {
@@ -1075,6 +1116,8 @@ export class TtsManager {
 		}
 	}
 }
+
+let _wlipsyncProfile: WLipSyncProfile | null = null;
 
 let instance: TtsManager | null = null;
 export function getTtsManager() {

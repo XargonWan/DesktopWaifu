@@ -34,3 +34,6 @@ vite.config.ts.timestamp-*
 !.claude/commands/**
 .claude/settings.local.json
 src/lib/vendor/edge-tts-universal.js
+test_replicate_chat.py
+test_replicate_chunked.py
+test_replicate_tts.py
