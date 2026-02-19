@@ -1,15 +1,17 @@
 <script lang="ts">
 	import ProviderKeyRow from './ProviderKeyRow.svelte';
-	import { LLM_PROVIDERS, TTS_PROVIDERS, testLlmProvider, testFishProvider } from './providers.js';
+	import { LLM_PROVIDERS, TTS_PROVIDERS, testLlmProvider, testFishProvider, testQwenProvider } from './providers.js';
 	import type { ProviderDefaults } from './providers.js';
 
 	let {
 		providerDefaults = $bindable(),
 		fishApiKey = $bindable(''),
+		qwenEndpoint = $bindable('http://localhost:8880'),
 		onsave
 	}: {
 		providerDefaults: Record<string, ProviderDefaults>;
 		fishApiKey: string;
+		qwenEndpoint: string;
 		onsave: () => void;
 	} = $props();
 
@@ -58,6 +60,19 @@
 		}};
 		testing = { ...testing, fish: false };
 	}
+
+	async function testQwen() {
+		testing = { ...testing, qwen: true };
+		const result = await testQwenProvider(qwenEndpoint);
+		results = {
+			...results,
+			qwen: {
+				ok: result.ok,
+				msg: result.ok ? (result.message || 'Connected') : (result.error || 'Failed')
+			}
+		};
+		testing = { ...testing, qwen: false };
+	}
 </script>
 
 <div class="section-card">
@@ -81,11 +96,13 @@
 	{#each TTS_PROVIDERS as config}
 		<ProviderKeyRow
 			{config}
-			apiKey={fishApiKey}
+			apiKey={config.id === 'fish' ? fishApiKey : ''}
+			endpoint={config.id === 'qwen' ? qwenEndpoint : ''}
 			testing={testing[config.id] || false}
 			testResult={results[config.id] || null}
-			onkeychange={(v) => { fishApiKey = v; onsave(); }}
-			ontest={testFish}
+			onkeychange={config.id === 'fish' ? ((v) => { fishApiKey = v; onsave(); }) : undefined}
+			onendpointchange={config.id === 'qwen' ? ((v) => { qwenEndpoint = v; onsave(); }) : undefined}
+			ontest={config.id === 'fish' ? testFish : testQwen}
 		/>
 	{/each}
 

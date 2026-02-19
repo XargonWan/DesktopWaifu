@@ -15,6 +15,7 @@
 	let loaded = $state(false);
 	let providerDefaults = $state<Record<string, ProviderDefaults>>({});
 	let fishApiKey = $state('');
+	let qwenEndpoint = $state('http://localhost:8880');
 	let fishSavedVoices = $state<{ id: string; name: string }[]>([]);
 	let fishModel = $state('s1');
 	let fishVoiceId = $state('');
@@ -44,6 +45,7 @@
 				// Populate from existing app state
 				if (state.tts) {
 					fishApiKey = state.tts.fishApiKey || '';
+					qwenEndpoint = state.tts.qwenEndpoint || 'http://localhost:8880';
 					fishSavedVoices = state.tts.fishSavedVoices || [];
 					fishModel = state.tts.fishModel || 's1';
 					fishVoiceId = state.tts.fishVoiceId || '';
@@ -108,6 +110,7 @@
 			}
 
 			await storage.setSetting('tts.fishApiKey', fishApiKey);
+			await storage.setSetting('tts.qwenEndpoint', qwenEndpoint);
 			await storage.setSetting('tts.fishSavedVoices', $state.snapshot(fishSavedVoices));
 			await storage.setSetting('tts.fishModel', fishModel);
 			await storage.setSetting('tts.fishVoiceId', fishVoiceId);
@@ -137,6 +140,7 @@
 		const _voice = fishVoiceId;
 		const _latency = fishLatency;
 		const _key = fishApiKey;
+		const _qwenEndpoint = qwenEndpoint;
 		const _memEnabled = memoryEnabled;
 		const _memMode = memoryMode;
 		const _memMax = memoryMaxContext;
@@ -173,6 +177,7 @@
 			<ApiKeysSection
 				bind:providerDefaults
 				bind:fishApiKey
+				bind:qwenEndpoint
 				onsave={debouncedSave}
 			/>
 

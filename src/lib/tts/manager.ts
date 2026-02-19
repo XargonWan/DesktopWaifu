@@ -79,7 +79,7 @@ class SentenceAccumulator {
 }
 
 export class TtsManager {
-	provider: 'fish' | 'kokoro' = 'kokoro';
+	provider: 'fish' | 'kokoro' | 'qwen' = 'kokoro';
 	kokoroVoice: KokoroVoice = 'af_heart';
 	kokoroDtype: KokoroDtype = 'q4';
 	kokoroDevice: KokoroDevice = 'webgpu';
@@ -88,6 +88,9 @@ export class TtsManager {
 	fishModel: 's1' | 'speech-1.5' | 'speech-1.6' = 's1';
 	fishLatency: 'normal' | 'balanced' = 'balanced';
 	fishSampleRate = 24000;
+	qwenEndpoint = 'http://localhost:8880';
+	qwenLanguage = 'English';
+	qwenSampleRate = 24000;
 	enableTts = true;
 
 	audioContext: AudioContext | null = null;
@@ -118,6 +121,10 @@ export class TtsManager {
 	_fishPlaybackCursorTime = 0;
 	_fishTrailingByte: number | null = null;
 	_fishActiveSources = new Set<AudioBufferSourceNode>();
+	_qwenTrailingBytes = new Uint8Array(0);
+	_qwenStreamChain: Promise<void> = Promise.resolve();
+	_qwenStreamActive = false;
+	_qwenAbortControllers = new Set<AbortController>();
 	_fishLipSyncChain: Promise<void> = Promise.resolve();
 	_phonemizerPromise: Promise<{ phonemize: (text: string, language?: string) => Promise<string[]> } | null> | null = null;
 	_analyserConnected = false;
@@ -219,7 +226,7 @@ export class TtsManager {
 		// Fish benefits from earlier flushes so TTS synthesis can overlap LLM generation.
 		const threshold = this.isFirstChunkOfTurn
 			? 12
-			: this.provider === 'fish'
+			: this.provider === 'fish' || this.provider === 'qwen'
 				? 28
 				: 70;
 		if (this.chunkBuffer.length >= threshold || (isFinal && this.chunkBuffer.length > 2)) {
@@ -254,20 +261,34 @@ export class TtsManager {
 				return;
 			}
 			// Generate approximate word boundaries + phonemes for lip sync
-		this._fishLipSyncChain = this._fishLipSyncChain.then(() => this._appendFishApproxLipSync(text));
-
-		void this._fishTextController
+			this._fishLipSyncChain = this._fishLipSyncChain.then(() => this._appendFishApproxLipSync(text));
+			void this._fishTextController
 				.write(this._fishTextEncoder.encode(text + ' '))
 				.catch((err) => {
 					const e = err instanceof Error ? err : new Error(String(err));
 					this.onError?.(e);
 				});
-		} else {
-			// Kokoro: queue for worker processing
-			this.textQueue.push(text);
-			if (!this.ttsWorkerRunning && this.textQueue.length > 0) this.initialize();
-			this._processNext();
+			return;
 		}
+
+		if (this.provider === 'qwen') {
+			if (!this._qwenStreamActive) {
+				this._startQwenStreamTurn();
+			}
+			this._qwenStreamChain = this._qwenStreamChain
+				.then(() => this._appendFishApproxLipSync(text))
+				.then(() => this._streamQwenText(text))
+				.catch((err) => {
+					const e = err instanceof Error ? err : new Error(String(err));
+					this.onError?.(e);
+				});
+			return;
+		}
+
+		// Kokoro: queue for worker processing
+		this.textQueue.push(text);
+		if (!this.ttsWorkerRunning && this.textQueue.length > 0) this.initialize();
+		this._processNext();
 	}
 
 	/** Finalize the current turn for the active provider */
@@ -278,11 +299,17 @@ export class TtsManager {
 				this._fishTextController = null;
 			}
 			void this._finalizeFishStream();
-		} else {
-			// Kokoro: just kick the queue — it'll drain naturally
-			if (!this.ttsWorkerRunning && this.textQueue.length > 0) this.initialize();
-			this._processNext();
+			return;
 		}
+
+		if (this.provider === 'qwen') {
+			void this._finalizeQwenStream();
+			return;
+		}
+
+		// Kokoro: just kick the queue — it'll drain naturally
+		if (!this.ttsWorkerRunning && this.textQueue.length > 0) this.initialize();
+		this._processNext();
 	}
 
 	stop() {
@@ -301,11 +328,18 @@ export class TtsManager {
 		}
 		this._fishAudioPromise = null;
 		this._resetFishRealtimeState(true);
+		this._resetQwenStreamState();
+		this._qwenStreamChain = Promise.resolve();
+		this._qwenStreamActive = false;
 
 		if (this._fishAbortController) {
 			this._fishAbortController.abort();
 			this._fishAbortController = null;
 		}
+		for (const controller of this._qwenAbortControllers) {
+			controller.abort();
+		}
+		this._qwenAbortControllers.clear();
 
 		if (this.currentSource) {
 			try { this.currentSource.stop(); } catch { /* Already stopped */ }
@@ -468,6 +502,7 @@ export class TtsManager {
 	async _synthesizeWithLipSync(text: string): Promise<ChunkData | null> {
 		if (this.provider === 'kokoro') return this._synthesizeKokoro(text);
 		if (this.provider === 'fish') return this._synthesizeFish(text);
+		if (this.provider === 'qwen') return this._synthesizeQwen(text);
 		throw new Error(`Unsupported TTS provider: ${this.provider}`);
 	}
 
@@ -543,6 +578,41 @@ export class TtsManager {
 		}
 
 		return { audioBlob, wordBoundaries, phonemes: null, text };
+	}
+
+	async _synthesizeQwen(text: string): Promise<ChunkData> {
+		const endpoint = this._normalizeQwenEndpoint();
+		const controller = new AbortController();
+		this._qwenAbortControllers.add(controller);
+		try {
+			const response = await fetch(`${endpoint}/v1/tts/stream`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				signal: controller.signal,
+				body: JSON.stringify({
+					text,
+					language: this.qwenLanguage || 'English'
+				})
+			});
+			if (!response.ok) {
+				const err = await response.json().catch(async () => ({ error: await response.text() }));
+				throw new Error(err.error || err.detail || `Qwen TTS error ${response.status}`);
+			}
+			const sampleRateHeader = response.headers.get('x-qwen-sample-rate');
+			const sampleRateParsed = sampleRateHeader ? Number(sampleRateHeader) : NaN;
+			const sampleRate = Number.isFinite(sampleRateParsed) ? sampleRateParsed : this.qwenSampleRate;
+			const audioBytes = new Uint8Array(await response.arrayBuffer());
+			const wavBlob = this._float32PcmToWav(audioBytes, sampleRate);
+			return {
+				audioBlob: wavBlob,
+				wordBoundaries: [],
+				phonemes: null,
+				text,
+				sampleRate
+			};
+		} finally {
+			this._qwenAbortControllers.delete(controller);
+		}
 	}
 
 	async _getPhonemizer() {
@@ -657,6 +727,67 @@ export class TtsManager {
 		}
 	}
 
+	_resetQwenStreamState() {
+		this._qwenTrailingBytes = new Uint8Array(0);
+	}
+
+	_startQwenStreamTurn() {
+		this._qwenStreamActive = true;
+		this._resetQwenStreamState();
+		this._resetFishRealtimeState(false);
+		this._fishLipSyncChain = Promise.resolve();
+		this.wordBoundaries = [];
+		this.currentPhonemes = [];
+		this.wordBoundaryStartTime = null;
+	}
+
+	_normalizeQwenEndpoint(): string {
+		const raw = (this.qwenEndpoint || 'http://localhost:8880').trim();
+		const withScheme = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
+		return withScheme.replace(/\/+$/, '');
+	}
+
+	async _streamQwenText(text: string) {
+		const endpoint = this._normalizeQwenEndpoint();
+		const controller = new AbortController();
+		this._qwenAbortControllers.add(controller);
+		try {
+			const response = await fetch(`${endpoint}/v1/tts/stream`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				signal: controller.signal,
+				body: JSON.stringify({
+					text,
+					language: this.qwenLanguage || 'English'
+				})
+			});
+			if (!response.ok) {
+				const err = await response.json().catch(async () => ({ error: await response.text() }));
+				throw new Error(err.error || err.detail || `Qwen TTS error ${response.status}`);
+			}
+			if (!response.body) throw new Error('Qwen stream missing response body');
+
+			const sampleRateHeader = response.headers.get('x-qwen-sample-rate');
+			const sampleRateParsed = sampleRateHeader ? Number(sampleRateHeader) : NaN;
+			const sampleRate = Number.isFinite(sampleRateParsed) ? sampleRateParsed : this.qwenSampleRate;
+			this.qwenSampleRate = sampleRate;
+
+			if (!this.audioContext) await this.initialize();
+			const now = this.audioContext?.currentTime ?? 0;
+			this._fishPlaybackCursorTime = Math.max(this._fishPlaybackCursorTime, now);
+
+			const reader = response.body.getReader();
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				if (!value || value.length === 0) continue;
+				this._scheduleQwenFloat32Chunk(value, sampleRate);
+			}
+		} finally {
+			this._qwenAbortControllers.delete(controller);
+		}
+	}
+
 	_scheduleFishPcmChunk(chunk: Uint8Array, sampleRate: number) {
 		if (!this.audioContext || !this.audioAnalyser || chunk.length === 0) return;
 
@@ -681,6 +812,71 @@ export class TtsManager {
 			let sample = (pcm[j + 1] << 8) | pcm[j];
 			if (sample >= 0x8000) sample -= 0x10000;
 			floatSamples[i] = sample / 32768;
+		}
+
+		if (this.audioContext.state === 'suspended') {
+			void this.audioContext.resume().catch(() => {});
+		}
+
+		const audioBuffer = this.audioContext.createBuffer(1, sampleCount, sampleRate);
+		audioBuffer.copyToChannel(floatSamples, 0);
+
+		const source = this.audioContext.createBufferSource();
+		source.buffer = audioBuffer;
+		source.connect(this.audioAnalyser);
+		if (this.lipsyncNode) source.connect(this.lipsyncNode);
+		this._ensureAnalyserConnected();
+
+		const now = this.audioContext.currentTime;
+		if (this._fishPlaybackCursorTime < now + 0.01) {
+			this._fishPlaybackCursorTime = now + 0.01;
+		}
+		const startAt = this._fishPlaybackCursorTime;
+		source.start(startAt);
+		this._fishPlaybackCursorTime += audioBuffer.duration;
+
+		this._fishActiveSources.add(source);
+		source.onended = () => {
+			this._fishActiveSources.delete(source);
+			try { source.disconnect(); } catch { /* ignore */ }
+		};
+
+		if (!this.isPlaying) {
+			this.isPlaying = true;
+			this.wordBoundaryStartTime = startAt;
+			this.onSpeechStarted?.();
+			this.onLipSyncData?.({
+				wordBoundaries: this.wordBoundaries,
+				phonemes: this.currentPhonemes,
+				text: ''
+			});
+		}
+	}
+
+	_scheduleQwenFloat32Chunk(chunk: Uint8Array, sampleRate: number) {
+		if (!this.audioContext || !this.audioAnalyser || chunk.length === 0) return;
+
+		let pcm = chunk;
+		if (this._qwenTrailingBytes.length > 0) {
+			const merged = new Uint8Array(this._qwenTrailingBytes.length + chunk.length);
+			merged.set(this._qwenTrailingBytes, 0);
+			merged.set(chunk, this._qwenTrailingBytes.length);
+			pcm = merged;
+			this._qwenTrailingBytes = new Uint8Array(0);
+		}
+
+		const remainder = pcm.length % 4;
+		if (remainder !== 0) {
+			this._qwenTrailingBytes = pcm.slice(pcm.length - remainder);
+			pcm = pcm.subarray(0, pcm.length - remainder);
+		}
+		if (pcm.length === 0) return;
+
+		const sampleCount = pcm.length / 4;
+		const floatSamples = new Float32Array(sampleCount);
+		const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+		for (let i = 0; i < sampleCount; i++) {
+			floatSamples[i] = view.getFloat32(i * 4, true);
 		}
 
 		if (this.audioContext.state === 'suspended') {
@@ -847,6 +1043,34 @@ export class TtsManager {
 		}
 	}
 
+	async _finalizeQwenStream() {
+		const chain = this._qwenStreamChain;
+		this._qwenStreamChain = Promise.resolve();
+		try {
+			await chain;
+			await this._waitForFishPlaybackDrain();
+			if (this.isPlaying) {
+				this.isPlaying = false;
+				this.wordBoundaries = [];
+				this.currentPhonemes = null;
+				this.wordBoundaryStartTime = null;
+				this.onSpeechFinished?.();
+			}
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			console.error('[TtsManager] Qwen stream playback error:', err);
+			this._resetFishRealtimeState(true);
+			this._resetQwenStreamState();
+			this.isPlaying = false;
+			this.wordBoundaryStartTime = null;
+			this.onError?.(err as Error);
+		} finally {
+			this._qwenStreamActive = false;
+			this._resetQwenStreamState();
+			this._resetFishRealtimeState(false);
+		}
+	}
+
 	_pcmToWav(pcmBlob: Blob, sampleRate = 24000): Promise<Blob> {
 		return new Promise((resolve) => {
 			const reader = new FileReader();
@@ -871,6 +1095,31 @@ export class TtsManager {
 			};
 			reader.readAsArrayBuffer(pcmBlob);
 		});
+	}
+
+	_float32PcmToWav(float32Pcm: Uint8Array, sampleRate = 24000): Blob {
+		const frameCount = Math.floor(float32Pcm.byteLength / 4);
+		const dataBytes = frameCount * 4;
+		const wavBuffer = new ArrayBuffer(44 + dataBytes);
+		const view = new DataView(wavBuffer);
+
+		view.setUint32(0, 0x52494646, false); // RIFF
+		view.setUint32(4, 36 + dataBytes, true);
+		view.setUint32(8, 0x57415645, false); // WAVE
+		view.setUint32(12, 0x666d7420, false); // fmt 
+		view.setUint32(16, 16, true); // PCM chunk size
+		view.setUint16(20, 3, true); // IEEE float
+		view.setUint16(22, 1, true); // mono
+		view.setUint32(24, sampleRate, true);
+		view.setUint32(28, sampleRate * 4, true);
+		view.setUint16(32, 4, true);
+		view.setUint16(34, 32, true);
+		view.setUint32(36, 0x64617461, false); // data
+		view.setUint32(40, dataBytes, true);
+
+		const out = new Uint8Array(wavBuffer, 44);
+		out.set(float32Pcm.subarray(0, dataBytes));
+		return new Blob([wavBuffer], { type: 'audio/wav' });
 	}
 
 	async _playAudioChunk(chunkData: ChunkData) {
@@ -1096,6 +1345,26 @@ export class TtsManager {
 		}
 	}
 
+	async getQwenHealth(): Promise<{ ok: boolean; message: string }> {
+		const endpoint = this._normalizeQwenEndpoint();
+		try {
+			const response = await fetch(`${endpoint}/v1/health`);
+			if (!response.ok) {
+				return { ok: false, message: `HTTP ${response.status}` };
+			}
+			const data = await response.json().catch(() => ({}));
+			const ready = Boolean(data?.ok);
+			if (ready) {
+				return { ok: true, message: 'Ready' };
+			}
+			const reason = data?.last_error || 'Not ready';
+			return { ok: false, message: reason };
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			return { ok: false, message };
+		}
+	}
+
 	getKokoroVoices(): VoiceInfo[] {
 		return Object.entries(KOKORO_VOICES).map(([id, info]) => ({
 			id,
@@ -1111,6 +1380,8 @@ export class TtsManager {
 				return this.getKokoroVoices();
 			case 'fish':
 				return this.getFishVoices();
+			case 'qwen':
+				return [];
 			default:
 				return [];
 		}

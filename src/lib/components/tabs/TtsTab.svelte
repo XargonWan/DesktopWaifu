@@ -82,6 +82,7 @@
 		{ value: 'cpu', label: 'CPU' },
 		{ value: 'auto', label: 'Auto Detect' }
 	];
+	const qwenLanguageOptions = ['Auto', 'English', 'Chinese', 'Japanese', 'Korean', 'Spanish', 'French', 'German'];
 
 	let isMobile = $state(false);
 	if (typeof window !== 'undefined') {
@@ -90,6 +91,9 @@
 
 	let showFishKey = $derived(tts.provider === 'fish');
 	let showKokoroOptions = $derived(tts.provider === 'kokoro');
+	let showQwenOptions = $derived(tts.provider === 'qwen');
+	let qwenStatus = $state<'idle' | 'checking' | 'ready' | 'error'>('idle');
+	let qwenStatusText = $state('Not checked');
 
 	// Fish Audio state
 	let fishModels = $state<{ id: string; name: string; author?: string }[]>([]);
@@ -181,13 +185,27 @@
 	}
 
 	function onProviderChange(e: Event) {
-		const newProvider = (e.target as HTMLSelectElement).value as 'fish' | 'kokoro';
+		const newProvider = (e.target as HTMLSelectElement).value as 'fish' | 'kokoro' | 'qwen';
 		if (newProvider === 'kokoro' && isMobile) {
 			toast('Kokoro is not supported on mobile — use Fish Audio instead');
 			(e.target as HTMLSelectElement).value = tts.provider;
 			return;
 		}
 		tts.provider = newProvider;
+	}
+
+	async function checkQwenServer() {
+		qwenStatus = 'checking';
+		qwenStatusText = 'Checking...';
+		ttsManager.qwenEndpoint = tts.qwenEndpoint;
+		const result = await ttsManager.getQwenHealth();
+		if (result.ok) {
+			qwenStatus = 'ready';
+			qwenStatusText = 'Ready';
+		} else {
+			qwenStatus = 'error';
+			qwenStatusText = result.message;
+		}
 	}
 
 	function onVoiceChange(e: Event) {
@@ -256,6 +274,9 @@
 				ttsManager.fishApiKey = tts.fishApiKey;
 				ttsManager.fishVoiceId = tts.fishVoiceId;
 				ttsManager.fishModel = tts.fishModel as any;
+			} else if (tts.provider === 'qwen') {
+				ttsManager.qwenEndpoint = tts.qwenEndpoint;
+				ttsManager.qwenLanguage = tts.qwenLanguage;
 			}
 			ttsManager.enableTts = true;
 			if (!ttsManager.audioContext) await ttsManager.initialize();
@@ -268,6 +289,7 @@
 
 	let statusText = $derived(
 		tts.provider === 'fish' ? 'Fish Audio (Cloud API)' :
+		tts.provider === 'qwen' ? `Qwen (Local Server: ${tts.qwenEndpoint})` :
 		tts.provider === 'kokoro' ? (tts.kokoroReady ? 'Kokoro (Local, 28 voices)' : 'Kokoro (Not initialized)') :
 		'Unknown'
 	);
@@ -278,6 +300,7 @@
 	<select class="select-tech" onchange={onProviderChange}>
 		<option value="kokoro" selected={tts.provider === 'kokoro'} disabled={isMobile}>Kokoro (Local/WebGPU){isMobile ? ' — N/A on mobile' : ''}</option>
 		<option value="fish" selected={tts.provider === 'fish'}>Fish Audio (Cloud)</option>
+		<option value="qwen" selected={tts.provider === 'qwen'}>Qwen (Local GPU Server)</option>
 	</select>
 	{#if isMobile}
 		<small class="hint" style="color: var(--danger);">Kokoro requires WebGPU — not available on mobile. Use Fish Audio.</small>
@@ -403,6 +426,35 @@
 	</div>
 {/if}
 
+{#if showQwenOptions}
+	<div class="control-group">
+		<div class="control-label">Qwen Endpoint</div>
+		<input type="text" class="input-tech" bind:value={tts.qwenEndpoint} placeholder="http://localhost:8880" />
+		<small class="hint">Local FastAPI server base URL</small>
+	</div>
+
+	<div class="control-group">
+		<div class="control-label">Qwen Language</div>
+		<select class="select-tech" bind:value={tts.qwenLanguage}>
+			{#each qwenLanguageOptions as lang}
+				<option value={lang}>{lang}</option>
+			{/each}
+		</select>
+	</div>
+
+	<div class="control-group">
+		<div class="control-label">Qwen Server Status</div>
+		<div class="kokoro-status">
+			<button class="btn-init" onclick={checkQwenServer} disabled={qwenStatus === 'checking'}>
+				{qwenStatus === 'checking' ? 'Checking...' : 'Check Server'}
+			</button>
+			<span class:status-ready={qwenStatus === 'ready'} class:status-loading={qwenStatus === 'checking'} class:status-hint={qwenStatus !== 'ready' && qwenStatus !== 'checking'}>
+				{qwenStatusText}
+			</span>
+		</div>
+	</div>
+{/if}
+
 <div class="control-group">
 	<div class="control-label">Test Input</div>
 	<input type="text" class="input-tech" bind:value={testInput} placeholder="Type text to test..." />
@@ -420,6 +472,7 @@
 	<div class="info-box">
 		<strong class="accent">Kokoro:</strong> 28 voices, runs locally via WebGPU/WASM. No server needed!<br>
 		<strong class="accent">Fish Audio:</strong> High quality cloud TTS with custom voice cloning. Requires API key.<br>
+		<strong class="accent">Qwen:</strong> Local Python GPU server with voice cloning via reference audio.<br>
 		<strong class="status">Current:</strong> <span>{statusText}</span>
 	</div>
 </div>

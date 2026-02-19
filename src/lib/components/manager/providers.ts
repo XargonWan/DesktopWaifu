@@ -25,6 +25,7 @@ export const LLM_PROVIDERS: ProviderConfig[] = [
 
 export const TTS_PROVIDERS: ProviderConfig[] = [
 	{ id: 'fish', label: 'Fish Audio', type: 'cloud', category: 'tts', needsApiKey: true, needsEndpoint: false },
+	{ id: 'qwen', label: 'Qwen Local', type: 'local', category: 'tts', needsApiKey: false, needsEndpoint: true, defaultEndpoint: 'http://localhost:8880' },
 ];
 
 export async function testLlmProvider(
@@ -59,6 +60,25 @@ export async function testFishProvider(
 		const data = await res.json();
 		if (!res.ok) return { ok: false, error: data.error || 'Request failed' };
 		return { ok: true, count: data.items?.length ?? 0 };
+	} catch (e: any) {
+		return { ok: false, error: e.message };
+	}
+}
+
+export async function testQwenProvider(
+	endpoint: string
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+	const raw = (endpoint || 'http://localhost:8880').trim();
+	const withScheme = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
+	const base = withScheme.replace(/\/+$/, '');
+	try {
+		const res = await fetch(`${base}/v1/health`);
+		if (!res.ok) {
+			return { ok: false, error: `HTTP ${res.status}` };
+		}
+		const data = await res.json().catch(() => ({}));
+		if (data?.ok) return { ok: true, message: 'Ready' };
+		return { ok: false, error: data?.last_error || 'Not ready' };
 	} catch (e: any) {
 		return { ok: false, error: e.message };
 	}
