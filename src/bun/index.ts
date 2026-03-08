@@ -1,4 +1,4 @@
-import { BrowserView, BrowserWindow, Updater } from './electrobun-runtime';
+import { BrowserView, BrowserWindow, Screen, Updater } from './electrobun-runtime';
 import { createFishRpcHandlers } from './fish.js';
 import type { WebWaifuElectrobunRPC } from '../lib/electrobun/rpc-schema.js';
 
@@ -21,6 +21,25 @@ async function getMainViewUrl(): Promise<string> {
 }
 
 const url = await getMainViewUrl();
+const display = Screen.getPrimaryDisplay();
+const workArea = display.workArea;
+
+function clamp(value: number, min: number, max: number) {
+	return Math.min(Math.max(value, min), max);
+}
+
+function getInitialFrame() {
+	const maxWidth = Math.max(960, workArea.width - 72);
+	const maxHeight = Math.max(700, workArea.height - 72);
+	const width = clamp(Math.round(workArea.width * 0.52), 1024, Math.min(1360, maxWidth));
+	const height = clamp(Math.round(workArea.height * 0.74), 720, Math.min(880, maxHeight));
+	const x = workArea.x + Math.max(24, Math.round((workArea.width - width) * 0.5));
+	const y = workArea.y + Math.max(24, Math.round((workArea.height - height) * 0.18));
+
+	return { width, height, x, y };
+}
+
+const initialFrame = getInitialFrame();
 
 let appRpc: ReturnType<typeof BrowserView.defineRPC<WebWaifuElectrobunRPC>>;
 const fishRpcHandlers = createFishRpcHandlers({
@@ -46,12 +65,7 @@ const mainWindow = new BrowserWindow({
 	title: 'WEBWAIFU 3',
 	url,
 	rpc: appRpc,
-	frame: {
-		width: 1440,
-		height: 960,
-		x: 120,
-		y: 80,
-	},
+	frame: initialFrame,
 	transparent: true,
 });
 

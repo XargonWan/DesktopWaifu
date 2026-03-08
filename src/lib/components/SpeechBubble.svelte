@@ -129,4 +129,16 @@
 			display: block;
 		}
 	}
+	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
+		.speech-bubble {
+			display: block;
+			bottom: calc(70px + var(--safe-bottom, 0px));
+			width: min(72vw, 420px);
+		}
+		.bubble-content {
+			max-height: 132px;
+			font-size: 0.8rem;
+			padding: 10px 14px;
+		}
+	}
 </style>

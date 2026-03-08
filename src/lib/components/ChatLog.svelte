@@ -323,4 +323,20 @@
 	@media (max-width: 640px) {
 		.log-panel { width: 100vw; }
 	}
+	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
+		.log-panel {
+			width: min(320px, 38vw);
+		}
+		.log-header {
+			padding: 14px 16px 10px;
+			padding-top: calc(clamp(10px, 1.8vh, 18px) + clamp(40px, 7vw, 48px) + 10px);
+		}
+		.log-messages {
+			padding: 8px 14px 96px;
+			gap: 8px;
+		}
+		.msg-text {
+			font-size: 0.78rem;
+		}
+	}
 </style>

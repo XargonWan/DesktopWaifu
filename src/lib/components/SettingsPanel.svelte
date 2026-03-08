@@ -244,4 +244,29 @@
 			min-height: 44px;
 		}
 	}
+	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
+		#settings-panel {
+			top: clamp(56px, 7vh, 72px);
+			right: 12px;
+			width: min(340px, calc(100vw - 24px));
+			height: min(560px, calc(100vh - 84px));
+			max-height: calc(100vh - 72px);
+		}
+		.tabs-header {
+			padding: 18px 18px 8px 18px;
+			height: 54px;
+		}
+		.tab-btn {
+			padding: 6px 10px;
+			font-size: 0.7rem;
+		}
+		.manager-link {
+			font-size: 0.55rem;
+			padding: 4px 6px;
+		}
+		.panel-scroll {
+			padding: 16px 18px 22px 18px;
+			gap: 16px;
+		}
+	}
 </style>

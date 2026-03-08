@@ -330,4 +330,30 @@
 		#chat-inner { clip-path: none; }
 		.icon-btn { width: 44px; height: 44px; }
 	}
+	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
+		#chat-container {
+			width: min(560px, calc(100vw - 96px));
+			bottom: clamp(8px, 2vh, 16px);
+		}
+		#chat-inner {
+			padding: 8px 12px;
+			min-height: 52px;
+		}
+		textarea {
+			font-size: 0.95rem;
+			max-height: 112px;
+		}
+		.chat-actions {
+			margin-left: 8px;
+			gap: 6px;
+		}
+		.icon-btn {
+			width: 34px;
+			height: 34px;
+		}
+		.chat-meta,
+		.meta-item {
+			font-size: 0.62rem;
+		}
+	}
 </style>

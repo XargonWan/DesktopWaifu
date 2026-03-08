@@ -906,4 +906,12 @@
 			top: calc(clamp(12px, 2vh, 24px) + var(--safe-top, 0px));
 		}
 	}
+	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
+		.mgr-btn {
+			top: clamp(10px, 1.8vh, 18px);
+			padding: 8px 12px;
+			font-size: 0.62rem;
+			letter-spacing: 0.12em;
+		}
+	}
 </style>
