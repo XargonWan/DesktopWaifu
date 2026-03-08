@@ -45,8 +45,11 @@
 	const sequencer = getAnimationSequencer();
 	const memState = getMemoryState();
 	const memoryManager = getMemoryManager();
+	const UI_DESIGN_WIDTH = 1500;
+	const UI_DESIGN_HEIGHT = 860;
 
 	let vrmCanvas: VrmCanvas;
+	let uiScale = $state(1);
 	const storage = getStorageManager();
 
 	function revokeBlobUrl(url: string | null | undefined) {
@@ -246,6 +249,16 @@
 	}
 
 	onMount(() => {
+		function updateUiScale() {
+			const width = Math.max(1, window.innerWidth || 1);
+			const height = Math.max(1, window.innerHeight || 1);
+			const scale = Math.min(1, width / UI_DESIGN_WIDTH, height / UI_DESIGN_HEIGHT);
+			uiScale = Math.max(0.62, scale);
+		}
+
+		updateUiScale();
+		window.addEventListener('resize', updateUiScale);
+
 		// Initialize storage and load saved settings
 		storage.initialize().then(async () => {
 			try {
@@ -689,6 +702,7 @@
 		toast('WEBWAIFU 3 initialized');
 
 		return () => {
+			window.removeEventListener('resize', updateUiScale);
 			window.removeEventListener('webwaifu3:load-vrm', onLoadVrm);
 			window.removeEventListener('webwaifu3:load-anim', onLoadAnim);
 			window.removeEventListener('webwaifu3:toggle-pass', onTogglePass);
@@ -850,7 +864,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="shell" onclick={handleClickOutside}>
 	<VrmCanvas bind:this={vrmCanvas} />
-	<div class="ui-layer">
+	<div class="ui-layer" style={`--ui-scale: ${uiScale};`}>
 		<a href="/manager" class="mgr-btn" title="Waifu Manager">MGR</a>
 		<ChatLog />
 		<SpeechBubble />
@@ -871,7 +885,12 @@
 
 	.ui-layer {
 		position: absolute;
-		inset: 0;
+		top: 0;
+		left: 0;
+		width: calc(100% / var(--ui-scale, 1));
+		height: calc(100% / var(--ui-scale, 1));
+		transform: scale(var(--ui-scale, 1));
+		transform-origin: top left;
 		pointer-events: none;
 		z-index: 10;
 	}

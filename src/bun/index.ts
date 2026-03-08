@@ -29,12 +29,17 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function getInitialFrame() {
-	const maxWidth = Math.max(960, workArea.width - 72);
-	const maxHeight = Math.max(700, workArea.height - 72);
-	const width = clamp(Math.round(workArea.width * 0.52), 1024, Math.min(1360, maxWidth));
-	const height = clamp(Math.round(workArea.height * 0.74), 720, Math.min(880, maxHeight));
-	const x = workArea.x + Math.max(24, Math.round((workArea.width - width) * 0.5));
-	const y = workArea.y + Math.max(24, Math.round((workArea.height - height) * 0.18));
+	const targetWidth = 1920;
+	const targetHeight = 1080;
+	const fitScale = Math.min(
+		1,
+		workArea.width / targetWidth,
+		workArea.height / targetHeight
+	);
+	const width = clamp(Math.round(targetWidth * fitScale), 960, targetWidth);
+	const height = clamp(Math.round(targetHeight * fitScale), 700, targetHeight);
+	const x = workArea.x + Math.max(0, Math.round((workArea.width - width) * 0.5));
+	const y = workArea.y + Math.max(0, Math.round((workArea.height - height) * 0.5));
 
 	return { width, height, x, y };
 }
