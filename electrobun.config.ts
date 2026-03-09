@@ -6,6 +6,9 @@ export default {
 		identifier: 'webwaifu3.electrobun.local',
 		version: '0.0.1',
 	},
+	scripts: {
+		postPackage: 'scripts/fix-windows-setup-extractor.mjs',
+	},
 	build: {
 		copy: {
 			'dist/index.html': 'views/mainview/index.html',
@@ -22,9 +25,14 @@ export default {
 		},
 		linux: {
 			bundleCEF: false,
+			icon: 'static/assets/desktopwaifu-icon.png',
 		},
 		win: {
 			bundleCEF: false,
+			icon: 'static/assets/desktopwaifu-icon.png',
 		},
+	},
+	release: {
+		generatePatch: false,
 	},
 } satisfies ElectrobunConfig;
