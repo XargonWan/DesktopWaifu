@@ -7,7 +7,7 @@ import type {
 	ShellControlActionPayload,
 	WebWaifuElectrobunRPC
 } from '../lib/electrobun/rpc-schema.js';
-import { setWindowClickThrough } from './windows-click-through';
+import { setWindowClickThrough, refreshWindowHitTest } from './windows-click-through';
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
@@ -29,28 +29,15 @@ async function getMainViewUrl(): Promise<string> {
 
 const url = await getMainViewUrl();
 const display = Screen.getPrimaryDisplay();
-const workArea = display.workArea;
-
-function clamp(value: number, min: number, max: number) {
-	return Math.min(Math.max(value, min), max);
-}
+const displayBounds = display.bounds;
 
 function getInitialFrame() {
-	const targetWidth = 1720;
-	const targetHeight = 1480;
-	const fitScale = Math.min(
-		1,
-		workArea.width / targetWidth,
-		workArea.height / targetHeight
-	);
-	const maxWidth = Math.min(targetWidth, workArea.width);
-	const maxHeight = Math.min(targetHeight, workArea.height);
-	const width = clamp(Math.round(targetWidth * fitScale), Math.min(1100, maxWidth), maxWidth);
-	const height = clamp(Math.round(targetHeight * fitScale), Math.min(720, maxHeight), maxHeight);
-	const x = workArea.x + Math.max(0, Math.round((workArea.width - width) * 0.5));
-	const y = workArea.y + Math.max(0, Math.round((workArea.height - height) * 0.5));
-
-	return { width, height, x, y };
+	return {
+		x: displayBounds.x,
+		y: displayBounds.y,
+		width: displayBounds.width,
+		height: displayBounds.height
+	};
 }
 
 const initialFrame = getInitialFrame();
@@ -86,6 +73,7 @@ appRpc = BrowserView.defineRPC<WebWaifuElectrobunRPC>({
 			},
 			windowSetFrame(frame) {
 				mainWindow.setFrame(frame.x, frame.y, frame.width, frame.height);
+				refreshWindowHitTest(mainWindow.ptr);
 				return { ok: true as const };
 			},
 			windowStartMove() {
@@ -94,6 +82,10 @@ appRpc = BrowserView.defineRPC<WebWaifuElectrobunRPC>({
 			},
 			windowGetInteractionState() {
 				return getWindowInteractionState();
+			},
+			windowClose() {
+				mainWindow.close();
+				return { ok: true as const };
 			}
 		},
 		messages: fishRpcHandlers.messages
@@ -105,6 +97,7 @@ const mainWindow = new BrowserWindow({
 	url,
 	rpc: appRpc,
 	frame: initialFrame,
+	titleBarStyle: 'hidden',
 	transparent: true,
 });
 
@@ -127,12 +120,12 @@ function emitWindowInteractionState() {
 }
 
 function resolveTrayImage() {
-	const devImagePath = join(process.cwd(), 'static', 'og-banner.png');
+	const devImagePath = join(process.cwd(), 'static', 'assets', 'desktopwaifu-icon.png');
 	if (existsSync(devImagePath)) {
 		return devImagePath;
 	}
 
-	return 'views://mainview/og-banner.png';
+	return 'views://mainview/static/assets/desktopwaifu-icon.png';
 }
 
 const tray = new Tray({

@@ -156,6 +156,10 @@ export interface WebWaifuElectrobunRPC {
 				params: {};
 				response: ElectrobunWindowInteractionState;
 			};
+			windowClose: {
+				params: {};
+				response: { ok: true };
+			};
 		};
 		messages: {
 			fishStreamChunk: FishStreamChunkPayload;

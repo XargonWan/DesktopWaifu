@@ -51,7 +51,7 @@
 	const sequencer = getAnimationSequencer();
 	const memState = getMemoryState();
 	const memoryManager = getMemoryManager();
-	const MIN_WINDOW_WIDTH = 1100;
+	const MIN_WINDOW_WIDTH = 1280;
 	const MIN_WINDOW_HEIGHT = 720;
 	const UI_REFERENCE_WIDTH = 1720;
 	const UI_REFERENCE_HEIGHT = 1480;
@@ -144,20 +144,30 @@
 		event.stopPropagation();
 		revealInteractiveChrome(true);
 
-		const rpc = await getElectrobunRpc();
-		if (!rpc) return;
+		let rpc: Awaited<ReturnType<typeof getElectrobunRpc>>;
+		let startFrame: ElectrobunWindowFrame;
+		try {
+			rpc = await getElectrobunRpc();
+			if (!rpc) return;
+			startFrame = await rpc.request.windowGetFrame({});
+		} catch {
+			return;
+		}
 
-		const startFrame = await rpc.request.windowGetFrame({});
 		const startScreenX = event.screenX;
 		const startScreenY = event.screenY;
-		const scaleX = startFrame.width / Math.max(window.innerWidth || 1, 1);
-		const scaleY = startFrame.height / Math.max(window.innerHeight || 1, 1);
+		// Physical frame pixels / CSS viewport pixels — same as JSMATE's
+		// GetClientRect().Right / viewportCssW (accounts for DPI implicitly)
+		const cssW = Math.max(window.innerWidth || 1, 1);
+		const cssH = Math.max(window.innerHeight || 1, 1);
+		const scaleX = startFrame.width / cssW;
+		const scaleY = startFrame.height / cssH;
 		let nextFrame: ElectrobunWindowFrame = { ...startFrame };
 		let rafId = 0;
 
 		const flushResize = () => {
 			rafId = 0;
-			void rpc.request.windowSetFrame(nextFrame);
+			try { void rpc!.request.windowSetFrame(nextFrame); } catch { /* lost connection */ }
 		};
 
 		const onPointerMove = (moveEvent: PointerEvent) => {
@@ -186,17 +196,19 @@
 			}
 		};
 
-		const onPointerUp = () => {
+		const cleanup = () => {
 			window.removeEventListener('pointermove', onPointerMove);
-			window.removeEventListener('pointerup', onPointerUp);
+			window.removeEventListener('pointerup', cleanup);
+			window.removeEventListener('pointercancel', cleanup);
 			if (rafId) {
 				cancelAnimationFrame(rafId);
 			}
-			void rpc.request.windowSetFrame(nextFrame);
+			try { void rpc!.request.windowSetFrame(nextFrame); } catch { /* lost connection */ }
 		};
 
 		window.addEventListener('pointermove', onPointerMove);
-		window.addEventListener('pointerup', onPointerUp, { once: true });
+		window.addEventListener('pointerup', cleanup, { once: true });
+		window.addEventListener('pointercancel', cleanup, { once: true });
 	}
 
 	function revokeBlobUrl(url: string | null | undefined) {
@@ -352,6 +364,8 @@
 					ttsManager.qwenEndpoint = ttsSettings.qwenEndpoint;
 					ttsManager.qwenLanguage = ttsSettings.qwenLanguage;
 					ttsManager.qwenVoiceId = ttsSettings.qwenVoiceId;
+					ttsManager.qwenBaseVoiceId = ttsSettings.qwenBaseVoiceId;
+					ttsManager.qwenWaveVoiceId = ttsSettings.qwenWaveVoiceId;
 					ttsManager.qwenLatencyMode = ttsSettings.qwenLatencyMode;
 					ttsManager.qwenEmitEveryFrames = ttsSettings.qwenEmitEveryFrames;
 					ttsManager.qwenDecodeWindowFrames = ttsSettings.qwenDecodeWindowFrames;
@@ -401,12 +415,16 @@
 
 		function updateUiScale() {
 			const viewport = window.visualViewport;
-			const width = Math.max(1, viewport?.width || window.innerWidth || 1);
-			const height = Math.max(1, viewport?.height || window.innerHeight || 1);
-			const fit = Math.min(width / UI_REFERENCE_WIDTH, height / UI_REFERENCE_HEIGHT);
+			const cssW = Math.max(1, viewport?.width || window.innerWidth || 1);
+			const cssH = Math.max(1, viewport?.height || window.innerHeight || 1);
+			const dpr = window.devicePixelRatio || 1;
+			// Use CSS pixels for UI layout (matches JSMATE's viewportCssW/H approach)
+			const fit = Math.min(cssW / UI_REFERENCE_WIDTH, cssH / UI_REFERENCE_HEIGHT);
 			uiScale = Math.min(1, Math.max(UI_MIN_SCALE, Math.max(fit, 0.01)));
-			uiStageWidth = width;
-			uiStageHeight = height;
+			uiStageWidth = cssW;
+			uiStageHeight = cssH;
+			// Report viewport info to host (like JSMATE's vrmBounds vw/vh/dpr)
+			document.documentElement.dataset.dpr = String(dpr);
 		}
 
 		function scheduleUiScaleUpdate() {
@@ -428,7 +446,10 @@
 
 		function handleGlobalKeydown(event: KeyboardEvent) {
 			handleUiActivity();
-			if (event.key === 'F6') {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				panel.toggle();
+			} else if (event.key === 'F6') {
 				event.preventDefault();
 				handleChatVisibilityToggle();
 			}
@@ -524,6 +545,8 @@
 					ttsSettings.qwenEndpoint = state.tts.qwenEndpoint ?? ttsSettings.qwenEndpoint;
 					ttsSettings.qwenLanguage = state.tts.qwenLanguage ?? ttsSettings.qwenLanguage;
 					ttsSettings.qwenVoiceId = state.tts.qwenVoiceId ?? ttsSettings.qwenVoiceId;
+					ttsSettings.qwenBaseVoiceId = state.tts.qwenBaseVoiceId ?? ttsSettings.qwenBaseVoiceId;
+					ttsSettings.qwenWaveVoiceId = state.tts.qwenWaveVoiceId ?? ttsSettings.qwenWaveVoiceId;
 					ttsSettings.qwenQualityPreset = state.tts.qwenQualityPreset ?? ttsSettings.qwenQualityPreset;
 					ttsSettings.qwenLatencyMode = state.tts.qwenLatencyMode ?? ttsSettings.qwenLatencyMode;
 					ttsSettings.qwenEmitEveryFrames = state.tts.qwenEmitEveryFrames ?? ttsSettings.qwenEmitEveryFrames;
@@ -689,6 +712,8 @@
 					ttsManager.qwenEndpoint = ttsSettings.qwenEndpoint;
 					ttsManager.qwenLanguage = ttsSettings.qwenLanguage;
 					ttsManager.qwenVoiceId = ttsSettings.qwenVoiceId;
+					ttsManager.qwenBaseVoiceId = ttsSettings.qwenBaseVoiceId;
+					ttsManager.qwenWaveVoiceId = ttsSettings.qwenWaveVoiceId;
 					ttsManager.qwenLatencyMode = ttsSettings.qwenLatencyMode;
 					ttsManager.qwenEmitEveryFrames = ttsSettings.qwenEmitEveryFrames;
 					ttsManager.qwenDecodeWindowFrames = ttsSettings.qwenDecodeWindowFrames;
@@ -982,6 +1007,8 @@
 				qwenEndpoint: ttsSettings.qwenEndpoint,
 				qwenLanguage: ttsSettings.qwenLanguage,
 				qwenVoiceId: ttsSettings.qwenVoiceId,
+				qwenBaseVoiceId: ttsSettings.qwenBaseVoiceId,
+				qwenWaveVoiceId: ttsSettings.qwenWaveVoiceId,
 				qwenQualityPreset: ttsSettings.qwenQualityPreset,
 				qwenLatencyMode: ttsSettings.qwenLatencyMode,
 				qwenEmitEveryFrames: ttsSettings.qwenEmitEveryFrames,
@@ -1081,6 +1108,7 @@
 	function handleClickOutside() {
 		if (panel.open) panel.open = false;
 	}
+
 </script>
 
 <svelte:head>
@@ -1089,7 +1117,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="shell" class:click-through={windowInteraction.clickThrough} onclick={handleClickOutside}>
+<div class="shell" class:click-through={windowInteraction.clickThrough} style={`--ui-scale: ${uiScale};`} onclick={handleClickOutside}>
 	<VrmCanvas bind:this={vrmCanvas} />
 	<div class="drag-surface electrobun-webkit-app-region-drag"></div>
 	<div class="resize-hitbox edge-n" onpointerdown={(event) => startWindowResize('n', event)}></div>
@@ -1104,17 +1132,14 @@
 	<div class="corner-dot corner-dot-ne" class:visible={interactiveChromeVisible}></div>
 	<div class="corner-dot corner-dot-sw" class:visible={interactiveChromeVisible}></div>
 	<div class="corner-dot corner-dot-se" class:visible={interactiveChromeVisible}></div>
+	<MenuFab visible={interactiveChromeVisible} />
 	<div class="ui-viewport">
-		<div
-			class="ui-stage"
-			style={`--ui-scale: ${uiScale}; --ui-stage-width: ${uiStageWidth}px; --ui-stage-height: ${uiStageHeight}px;`}
-		>
+		<div class="ui-stage">
 			<div class="top-controls" class:visible={interactiveChromeVisible}>
 				<a href="/manager" class="mgr-btn" title="Waifu Manager">MGR</a>
 			</div>
 			<ChatLog visible={interactiveChromeVisible} />
 			<SpeechBubble />
-			<MenuFab visible={interactiveChromeVisible} />
 			<SettingsPanel />
 			<ChatBar onsend={handleSend} />
 			<Toast />
@@ -1128,6 +1153,15 @@
 		position: fixed;
 		inset: 0;
 		background: var(--bg-canvas);
+		--desktop-ui-scale: var(--ui-scale, 1);
+		--desktop-edge-gap: clamp(10px, calc(24px * var(--desktop-ui-scale)), 24px);
+		--desktop-top-gap: clamp(10px, calc(24px * var(--desktop-ui-scale)), 24px);
+		--desktop-icon-size: clamp(30px, calc(48px * var(--desktop-ui-scale)), 48px);
+		--desktop-chat-width: clamp(220px, calc(100% * 0.5), 520px);
+		--desktop-chat-margin: clamp(12px, calc(28px * var(--desktop-ui-scale)), 28px);
+		--desktop-panel-width: clamp(300px, calc(100% * 0.26), 380px);
+		--desktop-panel-height: clamp(360px, calc(100% * 0.55), 560px);
+		--desktop-bubble-width: clamp(260px, calc(100% * 0.34), 520px);
 	}
 
 	.drag-surface {
@@ -1139,14 +1173,15 @@
 
 	.shell.click-through .drag-surface,
 	.shell.click-through .resize-hitbox,
-	.shell.click-through .corner-dot {
-		pointer-events: none;
+	.shell.click-through .corner-dot,
+	.shell.click-through :global(#menu-fab) {
+		pointer-events: none !important;
 	}
 
 	.ui-viewport {
 		position: absolute;
 		inset: 0;
-		overflow: hidden;
+		overflow: clip;
 		z-index: 10;
 		pointer-events: none;
 	}
@@ -1154,21 +1189,7 @@
 	.ui-stage {
 		position: absolute;
 		inset: 0;
-		width: var(--ui-stage-width, 100vw);
-		height: var(--ui-stage-height, 100vh);
-		--desktop-ui-scale: var(--ui-scale, 1);
-		--desktop-edge-gap: clamp(10px, calc(24px * var(--desktop-ui-scale)), 24px);
-		--desktop-top-gap: clamp(10px, calc(24px * var(--desktop-ui-scale)), 24px);
-		--desktop-icon-size: clamp(30px, calc(48px * var(--desktop-ui-scale)), 48px);
-		--desktop-chat-width: clamp(220px, calc(var(--ui-stage-width, 100vw) * 0.5), 520px);
-		--desktop-chat-margin: clamp(12px, calc(28px * var(--desktop-ui-scale)), 28px);
-		--desktop-panel-width: clamp(280px, calc(var(--ui-stage-width, 100vw) * 0.28), 380px);
-		--desktop-panel-height: clamp(420px, calc(var(--ui-stage-height, 100vh) * 0.78), 680px);
-		--desktop-bubble-width: clamp(260px, calc(var(--ui-stage-width, 100vw) * 0.34), 520px);
-		transform: none;
-		transform-origin: top left;
 		pointer-events: none;
-		will-change: auto;
 	}
 
 	.top-controls {
@@ -1250,7 +1271,7 @@
 
 	.resize-hitbox {
 		position: absolute;
-		z-index: 80;
+		z-index: 5;
 		pointer-events: auto;
 		background: transparent;
 	}
@@ -1323,7 +1344,7 @@
 
 	.corner-dot {
 		position: absolute;
-		z-index: 82;
+		z-index: 6;
 		width: 6px;
 		height: 6px;
 		border-radius: 999px;

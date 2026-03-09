@@ -1,20 +1,30 @@
 <script lang="ts">
-	import { getSettingsPanel } from '../stores/app.svelte.js';
+	import { getElectrobunRpc } from '$lib/electrobun/bridge.js';
 	let { visible = true }: { visible?: boolean } = $props();
-	const panel = getSettingsPanel();
+
+	async function closeApp() {
+		try {
+			const rpc = await getElectrobunRpc();
+			if (rpc) {
+				await rpc.request.windowClose({});
+			}
+		} catch {
+			window.close();
+		}
+	}
 </script>
 
 <button
 	id="menu-fab"
 	class:visible={visible}
-	class:active={panel.open}
-	title="Menu"
-	onclick={(e) => { e.stopPropagation(); panel.toggle(); }}
+	title="Close"
+	onmousedown={(e) => { e.stopPropagation(); e.stopImmediatePropagation(); }}
+	onpointerdown={(e) => { e.stopPropagation(); e.stopImmediatePropagation(); }}
+	onclick={(e) => { e.stopPropagation(); closeApp(); }}
 >
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-		<line x1="3" y1="12" x2="21" y2="12"></line>
-		<line x1="3" y1="6" x2="21" y2="6"></line>
-		<line x1="3" y1="18" x2="21" y2="18"></line>
+		<line x1="18" y1="6" x2="6" y2="18"></line>
+		<line x1="6" y1="6" x2="18" y2="18"></line>
 	</svg>
 </button>
 
@@ -25,57 +35,35 @@
 		right: var(--desktop-edge-gap, 24px);
 		width: var(--desktop-icon-size, 48px);
 		height: var(--desktop-icon-size, 48px);
+		min-width: 44px;
+		min-height: 44px;
 		background: var(--c-panel);
-		border: none;
+		border: 1px solid var(--c-border);
 		color: var(--text-main);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		pointer-events: auto;
-		z-index: 50;
+		z-index: 9999;
 		opacity: 0;
 		visibility: hidden;
 		pointer-events: none;
-		transform: translateY(-10px);
-		transition: all 0.2s var(--ease-tech);
-		clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+		transition: opacity 0.2s, visibility 0.2s;
 	}
 	#menu-fab.visible {
 		opacity: 1;
 		visibility: visible;
 		pointer-events: auto;
-		transform: translateY(0);
 	}
-	#menu-fab::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: var(--c-border);
-		z-index: -1;
-	}
-	#menu-fab::after {
-		content: '';
-		position: absolute;
-		inset: 1px;
-		background: var(--c-panel);
-		z-index: -1;
-		clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-	}
-	#menu-fab:hover { transform: translateY(0) scale(1.05); }
-	#menu-fab:hover::before { background: var(--c-text-accent); }
+	#menu-fab:hover { color: var(--danger, #f43f5e); border-color: var(--danger, #f43f5e); }
 	#menu-fab svg {
-		width: clamp(18px, calc(24px * var(--desktop-ui-scale, 1)), 24px);
-		height: clamp(18px, calc(24px * var(--desktop-ui-scale, 1)), 24px);
-		transition: transform 0.4s var(--ease-tech);
+		width: 20px;
+		height: 20px;
 	}
-	#menu-fab.active svg { transform: rotate(90deg); }
 	@media (max-width: 900px) {
 		#menu-fab {
 			top: calc(clamp(12px, 2vh, 24px) + var(--safe-top, 0px));
 			right: calc(clamp(12px, 2vw, 24px) + var(--safe-right, 0px));
-			min-width: 44px;
-			min-height: 44px;
 		}
 	}
 </style>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">DesktopWaifu Icon</title>
+  <desc id="desc">A dark neon desktop companion icon with clipped corners, cat ears, and a chat pulse.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#040913"/>
+      <stop offset="60%" stop-color="#091726"/>
+      <stop offset="100%" stop-color="#12253e"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#65f7ff"/>
+      <stop offset="55%" stop-color="#32b7ff"/>
+      <stop offset="100%" stop-color="#4e85ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="44%" r="48%">
+      <stop offset="0%" stop-color="#45d8ff" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="#45d8ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="64" y="96" width="896" height="864" rx="168" fill="url(#bg)"/>
+  <rect x="64" y="96" width="896" height="864" rx="168" fill="url(#glow)"/>
+
+  <path
+    d="M230 112L334 210H690L794 112L848 210L920 282V774L848 846L794 944L690 846H334L230 944L176 846L104 774V282L176 210Z"
+    fill="none"
+    stroke="url(#frame)"
+    stroke-width="26"
+    stroke-linejoin="round"
+    filter="url(#softGlow)"
+  />
+
+  <path d="M286 168L372 246H652L738 168" fill="none" stroke="#7fe8ff" stroke-opacity="0.82" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M250 820H774" fill="none" stroke="#2f8eff" stroke-opacity="0.42" stroke-width="12" stroke-linecap="round"/>
+
+  <g transform="translate(238 288)">
+    <path
+      d="M66 0L146 64H402L482 0L548 74V320L470 398H78L0 320V74Z"
+      fill="#071321"
+      stroke="#75e7ff"
+      stroke-width="18"
+      stroke-linejoin="round"
+    />
+    <path d="M120 118H428" fill="none" stroke="#4bc5ff" stroke-opacity="0.82" stroke-width="16" stroke-linecap="round"/>
+    <path d="M120 186H330" fill="none" stroke="#4bc5ff" stroke-opacity="0.45" stroke-width="12" stroke-linecap="round"/>
+    <path d="M120 236H286" fill="none" stroke="#4bc5ff" stroke-opacity="0.28" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="144" cy="288" r="18" fill="#7df4ff"/>
+    <circle cx="214" cy="288" r="18" fill="#7df4ff"/>
+    <path d="M150 338Q180 362 208 338" fill="none" stroke="#7df4ff" stroke-width="14" stroke-linecap="round"/>
+    <path d="M352 230l50 44l-50 44" fill="none" stroke="#79d8ff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g transform="translate(650 700)">
+    <path d="M0 42L60 0H188L248 42V134L188 176H60L0 134Z" fill="#0c1727" stroke="#66e4ff" stroke-width="14" stroke-linejoin="round"/>
+    <circle cx="60" cy="88" r="18" fill="#69f0ff"/>
+    <path d="M98 88H182" fill="none" stroke="#7dcfff" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

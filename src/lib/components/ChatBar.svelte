@@ -243,7 +243,7 @@
 	.meta-item.active { color: var(--c-text-accent); text-shadow: 0 0 8px var(--c-text-accent); }
 	@media (max-width: 900px) {
 		#chat-container {
-			width: calc(100% - 16px);
+			width: min(var(--desktop-chat-width, 420px), calc(100% - 16px));
 			max-width: calc(100% - 16px);
 			bottom: 0;
 			padding-bottom: var(--safe-bottom, 0px);

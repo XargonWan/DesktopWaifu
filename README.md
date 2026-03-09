@@ -1,20 +1,22 @@
 <div align="center">
 
-<img src="./static/assets/webwaifu3-banner.svg" alt="WEBWAIFU 3 banner" width="100%" />
+<img src="./static/assets/webwaifu3-banner.svg" alt="DesktopWaifu banner" width="100%" />
 
-# WEBWAIFU 3
+# DesktopWaifu
 
-### Browser-based VRM companion with local/cloud AI, voice, memory, and real-time 3D
+### Desktop VRM companion forked from WEBWAIFU 3 with Electrobun shell, native window behavior, and ONNX voice cloning
 
 <p>
-  <a href="#quick-start">Quick Start</a> |
+  <a href="#what-it-is">What It Is</a> |
   <a href="#feature-surface">Features</a> |
-  <a href="#v2-vs-v3">V2 vs V3</a> |
+  <a href="#desktopwaifu-vs-webwaifu3">DesktopWaifu vs WebWaifu3</a> |
+  <a href="#quick-start">Quick Start</a> |
   <a href="#provider-setup">Provider Setup</a> |
-  <a href="#architecture">Architecture</a>
+  <a href="#release-builds">Release Builds</a>
 </p>
 
 <p>
+  <img src="https://img.shields.io/badge/Electrobun-Desktop%20Shell-0f172a" alt="Electrobun" />
   <img src="https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit 2" />
   <img src="https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5" />
   <img src="https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white" alt="Vite 7" />
@@ -25,199 +27,169 @@
 
 <p>
   <img src="https://img.shields.io/badge/LLM-Ollama%20%7C%20LM%20Studio%20%7C%20OpenAI%20%7C%20OpenRouter-0f172a" alt="LLM Providers" />
-  <img src="https://img.shields.io/badge/TTS-Kokoro%20%7C%20Fish%20Audio-0f172a" alt="TTS Providers" />
+  <img src="https://img.shields.io/badge/TTS-Genie%20TTS%20%7C%20Fish%20Audio%20%7C%20Kokoro-0f172a" alt="TTS Providers" />
   <img src="https://img.shields.io/badge/STT-Whisper%20tiny.en-0f172a" alt="STT" />
-  <img src="https://img.shields.io/badge/Storage-IndexedDB-0f172a" alt="IndexedDB" />
+  <img src="https://img.shields.io/badge/Voice%20Cloning-GPT--SoVITS%20v2ProPlus%20ONNX-0f172a" alt="Voice Cloning" />
 </p>
 
 </div>
 
 <h2 align="center" id="what-it-is">What It Is</h2>
 
-WEBWAIFU 3 is a complete rewrite of [WEBWAIFU V2](https://github.com/xsploit/WEBWAIFUV2). Same concept — a browser-based AI companion with a 3D avatar — but rebuilt from scratch with a proper framework, typed codebase, and a more focused feature set.
+DesktopWaifu is the desktop-shell fork of [WEBWAIFU 3](https://github.com/xsploit/webwaifu3). The browser app remains the original web-first source, while this repo is the desktop-focused source of truth for:
 
-V2 was vanilla JS with no build system, supported both VRM and Live2D, used Edge TTS, and ran on Netlify. V3 drops the cruft, picks better defaults, and ships as a real SvelteKit app.
+- Electrobun shell behavior
+- transparent always-on-top window behavior
+- tray, hotkeys, click-through, and desktop chrome
+- packaged Windows installers
+- local ONNX voice cloning with Genie TTS
 
-Primary routes:
+The goal is simple: keep the WebWaifu UI and VRM workflow, but ship it as a real desktop companion instead of a browser tab.
 
-- `/` main companion UI
-- `/manager` provider config, memory controls, voice management, and data tools
+<h2 align="center" id="desktopwaifu-vs-webwaifu3">DesktopWaifu vs WebWaifu3</h2>
 
-<h2 align="center" id="v2-vs-v3">What Changed from V2</h2>
-
-| | V2 | V3 |
+| | WebWaifu3 | DesktopWaifu |
 |---|---|---|
-| **Framework** | Vanilla JS, no build | SvelteKit 2 + Vite 7 + TypeScript |
-| **Avatar** | VRM + Live2D (Pixi.js) | VRM only — deeper Three.js integration, post-processing, animation sequencer |
-| **TTS** | Edge TTS (free) + Fish Audio | Kokoro (local, runs on WebGPU/WASM) + Fish Audio (realtime PCM streaming) |
-| **LLM** | Gemini, OpenAI, OpenRouter, Ollama | OpenAI, OpenRouter, Ollama, LM Studio — all via Vercel AI SDK Responses API |
-| **STT** | Whisper tiny | Whisper tiny with silence trimming + transcript sanitization |
-| **Memory** | Embeddings + summarization | Same core but proper Web Worker isolation, hybrid mode, configurable summarization LLM |
-| **Lip sync** | Phoneme (Edge TTS) + amplitude (Fish) | Approximate phoneme mapping + PCM amplitude analysis (both providers) |
-| **Deploy** | Netlify serverless | Vercel (adapter-vercel) |
-| **State** | localStorage + IndexedDB | Svelte 5 runes + IndexedDB (StorageManager singleton) |
-| **Persistence** | Partial | Full — every setting, conversation, VRM binary, voice list persisted |
-
-**Dropped**: Live2D, Gemini, Edge TTS, DistilBERT, Pixi.js, Netlify functions.
-**Added**: Kokoro local TTS, LM Studio, realtime Fish PCM streaming, post-processing pipeline, animation sequencer, character system, TTS formatting rules auto-injection, semantic memory with vector search.
+| **Runtime** | Browser / hosted web app | Electrobun desktop app |
+| **Windowing** | Normal browser tab/window | Transparent shell, tray, hotkeys, click-through |
+| **TTS default** | Kokoro + Fish | Genie TTS voice cloning + Fish |
+| **Voice cloning** | Not the default path | GPT-SoVITS v2ProPlus converted to ONNX for local clone workflow |
+| **Distribution** | Deploy to web host | Ship installer / release artifacts |
+| **Source of truth** | Web app behavior | Desktop shell + release packaging + desktop UX |
 
 <h2 align="center" id="feature-surface">Feature Surface</h2>
+
+### Desktop shell
+
+- Transparent desktop shell via Electrobun
+- Tray menu, global shortcuts, desktop drag/resize behavior
+- Click-through mode with recovery hotkeys
+- Stable Windows installer packaging with post-package patching
 
 ### AI chat
 
 - Providers: `ollama`, `lmstudio`, `openai`, `openrouter`
-- Streaming token output wired into TTS sentence accumulator
-- Per-request Ollama tuning: `num_ctx`, `flash_attn`, `kv_cache_type`
-- Character-based system prompts with user nickname support
-- Auto-injected TTS formatting rules when voice is enabled (no emojis, spoken prose, proper punctuation)
+- Streaming token output into sentence-based TTS playback
+- Character/system prompt support
+- Local desktop persistence for settings and session state
 
 ### Text-to-speech
 
-- **Kokoro**: local TTS via Web Worker, runs on WebGPU with WASM fallback, configurable device + precision (fp32/fp16/q8/q4/q4f16)
-- **Fish Audio**: cloud TTS with realtime PCM streaming over WebSocket, configurable latency mode
-- Sentence accumulator splits LLM output into natural TTS chunks
-- Fish voice model operations from manager UI: list, search, create, delete
+- **Genie TTS**: local ONNX voice cloning path, GPT-SoVITS v2ProPlus converted models, built-in presets plus mix-and-match base model/wave source flow
+- **Fish Audio**: realtime cloud TTS path
+- **Kokoro**: still available when you want lightweight local speech
+- Default clone base preset comes from converted GPT-SoVITS defaults, not only the shipped demo characters
 
 ### Speech-to-text
 
-- Whisper model: `Xenova/whisper-tiny.en` in a Web Worker
-- Silence trimming before transcription to reduce hallucinations
-- Transcript sanitization (filters repeated-char artifacts)
-- Push-to-talk with optional auto-send and mic permission pre-check
-
-### Semantic memory
-
-- Embeddings model: `Xenova/all-MiniLM-L6-v2` (384-dim) in a Web Worker
-- Modes: `auto-prune`, `auto-summarize`, `hybrid` (default)
-- Cosine similarity search injects relevant history into prompt context
-- Optional summarization LLM with separate provider/model/key configuration
-- Model can be loaded/unloaded on demand to free GPU memory
+- Whisper tiny.en worker-based STT
+- push-to-talk / toggle recording flow
+- desktop hotkeys wired into the same recording controller
 
 ### 3D avatar and rendering
 
-- VRM load from built-in asset or user upload (binary persisted in IndexedDB)
-- Animation playlist/sequencer with crossfade controls
-- Realistic material toggle (PBR path)
-- Post-processing: bloom, chromatic aberration, film grain, glitch, FXAA/SMAA/TAA, bleach bypass, color correction, outline
-- Adjustable key/fill/rim/hemi/ambient lighting
-- Lip sync driven from both HTMLAudioElement (Kokoro) and PCM AudioBufferSourceNode (Fish) playback paths
+- VRM loading, animation sequencing, post-processing, lighting controls
+- desktop overlay UX instead of browser-tab UX
+- shell-level fixes for scaling, drag, and resize behavior
 
-### Persistence and management
+<h2 align="center" id="source-of-truth">Source of Truth</h2>
 
-- All settings saved in IndexedDB via StorageManager singleton
-- Provider defaults, visual settings, active tab, conversation state, Fish voice lists all persisted
-- Conversation auto-save on every user + assistant message
-- Conversation export (`JSON`, `TXT`)
-- Data tools in manager: export all, import, clear history, factory reset
-- Custom VRM binary persisted in IndexedDB
+For clarity:
+
+- `webwaifu3` is the original web product line
+- `DesktopWaifu` is the desktop fork built from that frontend
+- this repo is the source of truth for the Electrobun desktop app and release packaging
+
+That means desktop-specific behavior should be fixed here, not backported mentally from old experimental copies.
 
 <h2 align="center" id="quick-start">Quick Start</h2>
 
 ### Requirements
 
-- Node.js (current LTS recommended)
-- npm
-- Modern browser with WebGL + WebAudio support
-- WebGPU recommended for Kokoro TTS (falls back to WASM automatically)
-- At least one chat backend:
-  - Local (`Ollama` or `LM Studio`)
-  - Cloud (`OpenAI` or `OpenRouter`)
+- Bun
+- Node-compatible tooling for the frontend build
+- Python environment for Genie compat server if you want local voice cloning
+- Windows is the currently validated desktop target
 
-### Install and run
+### Dev run
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
-Dev URL: `https://localhost:5173`
-Note: HTTPS in development is provided by `@vitejs/plugin-basic-ssl`.
+### Stable release build
+
+```bash
+bun run build:stable
+```
+
+Windows release artifacts are written to:
+
+- `build/stable-win-x64/`
+- `artifacts/`
 
 <h2 align="center" id="provider-setup">Provider Setup</h2>
 
-### Ollama
+### LLMs
 
-1. Install Ollama and pull a model (example: `ollama pull llama3.2`).
-2. Enable "Allow through network" in Ollama settings.
-3. Set CORS origins so the browser can access Ollama.
+- `Ollama`
+- `LM Studio`
+- `OpenAI`
+- `OpenRouter`
 
-Mac/Linux:
+The manager UI is still the main place to configure provider keys, endpoints, and defaults.
+
+### Genie TTS
+
+DesktopWaifu uses a Python compatibility server for Genie TTS with GPT-SoVITS style ONNX voices.
+
+Typical local run:
 
 ```bash
-OLLAMA_ORIGINS=* ollama serve
+cd genie-tts-test
+python genie_compat_api.py --provider cuda
 ```
 
-Windows:
+Notes:
 
-1. Add system environment variable `OLLAMA_ORIGINS=*`.
-2. Restart Ollama.
-
-### LM Studio
-
-1. Download a model.
-2. Start local server (default `http://localhost:1234`).
-3. Enable CORS in LM Studio server settings.
-
-### OpenAI / OpenRouter
-
-1. Open `/manager`.
-2. Add API key.
-3. Select provider and model defaults.
+- `cuda` is the working provider today
+- TensorRT runtime can be installed, but current Genie `v2ProPlus` models are not TensorRT-safe as shipped
+- built-in Genie presets and uploaded WAV sources are intentionally separated so you can mix:
+  - base model: `mika`, `thirtyseven`, `feibi`, or converted GPT-SoVITS default
+  - wave source: your saved voice WAV source
 
 ### Fish Audio
 
-1. Add Fish API key in `/manager`.
-2. Fish requests are proxied through server routes:
-   - `POST /api/tts/fish` (single request)
-   - `POST /api/tts/fish-stream` (realtime WebSocket streaming, PCM)
+Fish remains available for cloud TTS and realtime streaming.
 
-<h2 align="center" id="model-and-runtime-notes">Model and Runtime Notes</h2>
+<h2 align="center" id="release-builds">Release Builds</h2>
 
-On first use, browser-side model downloads may occur and be cached:
-
-| Model | Size | Purpose | Runtime |
-|-------|------|---------|---------|
-| Kokoro 82M ONNX | ~86 MB | Local TTS | WebGPU / WASM |
-| Whisper tiny.en | ~40 MB | Local STT | Web Worker |
-| MiniLM-L6-v2 | ~23 MB | Embeddings / memory | Web Worker |
-
-Models are loaded on demand — Whisper and embeddings only init when you use them. Kokoro inits automatically when TTS is enabled with the Kokoro provider.
-
-<h2 align="center" id="security">Security</h2>
-
-- Keys are stored in browser IndexedDB only
-- Keys are sent only to selected providers and required proxy endpoints
-- API key inputs use CSS text-security masking to prevent browser password manager interference
-- Fish TTS requires API key transit through your deployed SvelteKit server route
-- Use scoped keys and provider spending limits for production
-
-<h2 align="center" id="scripts">Scripts</h2>
+This repo now has a real Windows stable release path:
 
 ```bash
-npm run dev       # Dev server with HTTPS
-npm run build     # Production build
-npm run preview   # Preview production build
-npm run check     # Svelte type checking
+bun run build:release
 ```
+
+The stable installer is:
+
+- `build/stable-win-x64/webwaifu3-electrobun-Setup.exe`
+
+The zipped release artifact is:
+
+- `artifacts/stable-win-x64-webwaifu3-electrobun-Setup.zip`
+
+There is a Windows-specific `postPackage` workaround in the build config because the stock optimized Electrobun self-extractor was deadlocking on this project. The release build swaps in the known-good extractor automatically after packaging.
 
 <h2 align="center" id="architecture">Architecture</h2>
 
-- Frontend: SvelteKit 2, Svelte 5 runes, TypeScript
+- Frontend: SvelteKit 2, Svelte 5, TypeScript
+- Desktop shell: Electrobun
 - 3D: `three`, `@pixiv/three-vrm`
-- LLM: Vercel AI SDK (`ai`, `@ai-sdk/openai`) — Responses API
-- STT/Memory models: `@huggingface/transformers` in Web Workers
-- TTS: `kokoro-js` (local WebGPU/WASM), `fish-audio` (cloud WebSocket)
-- Persistence: IndexedDB via `src/lib/storage/index.ts`
-- Analytics: Vercel Web Analytics
-
-<h2 align="center" id="deployment">Deployment</h2>
-
-Current project config uses `@sveltejs/adapter-vercel` (`svelte.config.js`).
-
-If you deploy to a different target, switch adapters and ensure the Fish API routes (`src/routes/api/tts/`) are deployed server-side.
-
-Live: [webwaifu3.vercel.app](https://webwaifu3.vercel.app/)
+- LLM: OpenAI-compatible providers plus local backends
+- TTS: Genie TTS compat server, Fish Audio, Kokoro
+- Persistence: IndexedDB plus desktop shell state
 
 <h2 align="center" id="license">License</h2>
 
-This repository currently does not include a `LICENSE` file. Add one before public distribution.
+This repository currently does not include a `LICENSE` file. Add one before public redistribution.

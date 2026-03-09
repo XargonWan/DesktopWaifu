@@ -88,52 +88,6 @@
 		{ value: 'auto', label: 'Auto Detect' }
 	];
 	const qwenLanguageOptions = ['Auto', 'English', 'Chinese', 'Japanese', 'Korean', 'Spanish', 'French', 'German'];
-	type QwenQualityPreset = 'fast' | 'balanced' | 'quality' | 'custom';
-	type QwenLatencyModeSetting = 'fast' | 'balanced' | 'quality';
-	const qwenPresetConfigs: Record<
-		Exclude<QwenQualityPreset, 'custom'>,
-		{
-			label: string;
-			description: string;
-			latencyMode: QwenLatencyModeSetting;
-			emitEveryFrames: number;
-			decodeWindowFrames: number;
-			overlapSamples: number;
-			maxFrames: number;
-			useOptimizedDecode: boolean;
-		}
-	> = {
-		fast: {
-			label: 'Fast',
-			description: 'Lowest latency for interactive chat.',
-			latencyMode: 'fast',
-			emitEveryFrames: 6,
-			decodeWindowFrames: 20,
-			overlapSamples: 256,
-			maxFrames: 2048,
-			useOptimizedDecode: true
-		},
-		balanced: {
-			label: 'Balanced',
-			description: 'Middle ground between speed and stability.',
-			latencyMode: 'balanced',
-			emitEveryFrames: 8,
-			decodeWindowFrames: 28,
-			overlapSamples: 384,
-			maxFrames: 4096,
-			useOptimizedDecode: true
-		},
-		quality: {
-			label: 'Quality',
-			description: 'Higher stability/quality with added latency.',
-			latencyMode: 'quality',
-			emitEveryFrames: 12,
-			decodeWindowFrames: 40,
-			overlapSamples: 640,
-			maxFrames: 8192,
-			useOptimizedDecode: false
-		}
-	};
 
 	let isMobile = $state(false);
 	if (typeof window !== 'undefined') {
@@ -143,18 +97,15 @@
 	let showFishKey = $derived(tts.provider === 'fish');
 	let showKokoroOptions = $derived(tts.provider === 'kokoro');
 	let showQwenOptions = $derived(tts.provider === 'qwen');
-	let qwenPresetDescription = $derived(
-		tts.qwenQualityPreset === 'custom'
-			? 'Custom parameters'
-			: qwenPresetConfigs[tts.qwenQualityPreset]?.description ?? 'Preset not configured'
-	);
 	let qwenStatus = $state<'idle' | 'checking' | 'ready' | 'error'>('idle');
 	let qwenStatusText = $state('Not checked');
-	type QwenVoicePreset = { id: string; name: string; active?: boolean };
+	type QwenVoicePreset = { id: string; name: string; active?: boolean; builtIn?: boolean };
 	let qwenVoices = $state<QwenVoicePreset[]>([]);
 	let qwenVoicesLoading = $state(false);
 	let qwenVoicesStatus = $state('Not loaded');
 	let qwenVoicesEndpoint = $state('');
+	let qwenBaseVoices = $derived(qwenVoices.filter((voice) => voice.builtIn || voice.id === 'gpt-sovits-v2pro-default'));
+	let qwenWaveVoices = $derived(qwenVoices.filter((voice) => voice.id !== 'gpt-sovits-v2pro-default'));
 
 	// Fish Audio state
 	let fishModels = $state<{ id: string; name: string; author?: string }[]>([]);
@@ -234,6 +185,18 @@
 		tts.provider = newProvider;
 	}
 
+	function onGenieBaseChange(e: Event) {
+		tts.qwenBaseVoiceId = (e.target as HTMLSelectElement).value;
+		// Switching the base means use the live mix path unless the user explicitly picks a preset again.
+		tts.qwenVoiceId = '';
+	}
+
+	function onGenieWaveSourceChange(e: Event) {
+		tts.qwenWaveVoiceId = (e.target as HTMLSelectElement).value;
+		// Switching the wave source means use the live mix path unless the user explicitly picks a preset again.
+		tts.qwenVoiceId = '';
+	}
+
 	async function checkQwenServer() {
 		qwenStatus = 'checking';
 		qwenStatusText = 'Checking...';
@@ -274,12 +237,25 @@
 		qwenVoices = result.items.map((voice) => ({
 			id: voice.id,
 			name: voice.name,
-			active: Boolean(voice.active)
+			active: Boolean(voice.active),
+			builtIn: Boolean((voice as any).built_in)
 		}));
 		qwenVoicesEndpoint = endpoint;
 
 		if (!tts.qwenVoiceId && result.activeVoiceId) {
 			tts.qwenVoiceId = result.activeVoiceId;
+		}
+		if (!tts.qwenBaseVoiceId || !result.items.some((voice) => voice.id === tts.qwenBaseVoiceId && (Boolean((voice as any).built_in) || voice.id === 'gpt-sovits-v2pro-default'))) {
+			tts.qwenBaseVoiceId = result.items.find((voice) => voice.id === 'gpt-sovits-v2pro-default')?.id
+				|| result.items.find((voice) => Boolean((voice as any).built_in))?.id
+				|| result.items[0]?.id
+				|| 'gpt-sovits-v2pro-default';
+		}
+		if (!tts.qwenWaveVoiceId || !result.items.some((voice) => voice.id === tts.qwenWaveVoiceId && voice.id !== 'gpt-sovits-v2pro-default')) {
+			tts.qwenWaveVoiceId = result.items.find((voice) => voice.id === 'mika')?.id
+				|| result.items.find((voice) => voice.id !== 'gpt-sovits-v2pro-default')?.id
+				|| result.items[0]?.id
+				|| 'mika';
 		}
 
 		qwenVoicesStatus = qwenVoices.length > 0
@@ -306,28 +282,6 @@
 		}, 250);
 		return () => clearTimeout(timer);
 	});
-
-	function applyQwenPreset(preset: Exclude<QwenQualityPreset, 'custom'>) {
-		const config = qwenPresetConfigs[preset];
-		tts.qwenQualityPreset = preset;
-		tts.qwenLatencyMode = config.latencyMode;
-		tts.qwenEmitEveryFrames = config.emitEveryFrames;
-		tts.qwenDecodeWindowFrames = config.decodeWindowFrames;
-		tts.qwenOverlapSamples = config.overlapSamples;
-		tts.qwenMaxFrames = config.maxFrames;
-		tts.qwenUseOptimizedDecode = config.useOptimizedDecode;
-		toast(`Genie preset applied: ${config.label}`);
-	}
-
-	function onQwenPresetChange(e: Event) {
-		const preset = (e.target as HTMLSelectElement).value as QwenQualityPreset;
-		if (preset === 'custom') {
-			tts.qwenQualityPreset = 'custom';
-			toast('Genie preset set to custom');
-			return;
-		}
-		applyQwenPreset(preset);
-	}
 
 	function onVoiceChange(e: Event) {
 		tts.kokoroVoice = (e.target as HTMLSelectElement).value;
@@ -558,7 +512,7 @@
 	<div class="control-group">
 		<div class="control-label">Genie Endpoint</div>
 		<input type="text" class="input-tech" bind:value={tts.qwenEndpoint} placeholder="http://localhost:8000" />
-		<small class="hint">Local Genie bridge base URL</small>
+		<small class="hint">Local Genie server base URL</small>
 	</div>
 
 	<div class="control-group">
@@ -571,41 +525,28 @@
 	</div>
 
 	<div class="control-group">
-		<div class="control-label">Genie Quality Preset</div>
-		<select class="select-tech" bind:value={tts.qwenQualityPreset} onchange={onQwenPresetChange}>
-			<option value="fast">Fast (low latency)</option>
-			<option value="balanced">Balanced</option>
-			<option value="quality">Quality (higher latency)</option>
-			<option value="custom">Custom</option>
-		</select>
-		<small class="hint">{qwenPresetDescription}</small>
-		<small class="hint">
-			Current: mode={tts.qwenLatencyMode}, emit={tts.qwenEmitEveryFrames ?? 'default'},
-			decode={tts.qwenDecodeWindowFrames ?? 'default'}, overlap={tts.qwenOverlapSamples ?? 'default'},
-			max={tts.qwenMaxFrames ?? 'default'}, optimized={tts.qwenUseOptimizedDecode === null ? 'default' : (tts.qwenUseOptimizedDecode ? 'true' : 'false')}
-		</small>
-	</div>
-
-	<div class="control-group">
-		<div class="control-label">Genie Voice Preset</div>
+		<div class="control-label">Genie Clone Base</div>
 		<div class="ref-audio-row">
 			<button class="btn-init" onclick={() => loadQwenVoices()} disabled={qwenVoicesLoading || qwenStatus === 'checking'}>
 				{qwenVoicesLoading ? 'Loading...' : 'Load Voices'}
 			</button>
-			<select class="select-tech" style="flex:1" bind:value={tts.qwenVoiceId} disabled={qwenVoicesLoading}>
-				<option value="">Server Active (Default)</option>
-				{#each qwenVoices as voice}
-					<option value={voice.id}>{voice.name}{voice.active ? ' (active)' : ''}</option>
+			<select class="select-tech" style="flex:1" bind:value={tts.qwenBaseVoiceId} onchange={onGenieBaseChange} disabled={qwenVoicesLoading}>
+				{#each qwenBaseVoices as voice}
+					<option value={voice.id}>{voice.name}{voice.builtIn ? ' (built-in)' : ''}</option>
 				{/each}
 			</select>
 		</div>
-		<small class="hint">{qwenVoicesStatus}</small>
+		<small class="hint">{qwenVoicesStatus}. Pick the base GPT-SoVITS / Genie model used for live speech and new clone presets.</small>
 	</div>
 
 	<div class="control-group">
-		<div class="control-label">Genie Voice ID</div>
-		<input type="text" class="input-tech" bind:value={tts.qwenVoiceId} placeholder="Preset ID from manager (optional)" />
-		<small class="hint">Advanced/manual override. Empty uses the server's active Genie preset.</small>
+		<div class="control-label">Genie Wave Source</div>
+		<select class="select-tech" bind:value={tts.qwenWaveVoiceId} onchange={onGenieWaveSourceChange} disabled={qwenVoicesLoading}>
+			{#each qwenWaveVoices as voice}
+				<option value={voice.id}>{voice.name}{voice.builtIn ? ' (built-in)' : ''}</option>
+			{/each}
+		</select>
+		<small class="hint">Pick the saved reference WAV/text preset you want to pair with the base model.</small>
 	</div>
 
 	<div class="control-group">
@@ -638,7 +579,7 @@
 	<div class="info-box">
 		<strong class="accent">Kokoro:</strong> 28 voices, runs locally via WebGPU/WASM. No server needed!<br>
 		<strong class="accent">Fish Audio:</strong> High quality cloud TTS with custom voice cloning. Requires API key.<br>
-		<strong class="accent">Genie:</strong> Local voice-cloning bridge with Mika as the default base preset.<br>
+		<strong class="accent">Genie:</strong> Local voice cloning with independent speech preset and clone-base selection, plus a converted GPT-SoVITS v2ProPlus default base.<br>
 		<strong class="status">Current:</strong> <span>{statusText}</span>
 	</div>
 </div>

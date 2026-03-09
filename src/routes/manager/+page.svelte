@@ -18,6 +18,8 @@
 	let fishApiKey = $state('');
 	let qwenEndpoint = $state('http://localhost:8000');
 	let qwenVoiceId = $state('');
+	let qwenBaseVoiceId = $state('gpt-sovits-v2pro-default');
+	let qwenWaveVoiceId = $state('mika');
 	let fishSavedVoices = $state<{ id: string; name: string }[]>([]);
 	let fishModel = $state('s1');
 	let fishVoiceId = $state('');
@@ -54,6 +56,8 @@
 					fishApiKey = state.tts.fishApiKey || '';
 					qwenEndpoint = state.tts.qwenEndpoint || 'http://localhost:8000';
 					qwenVoiceId = state.tts.qwenVoiceId || '';
+					qwenBaseVoiceId = state.tts.qwenBaseVoiceId || 'gpt-sovits-v2pro-default';
+					qwenWaveVoiceId = state.tts.qwenWaveVoiceId || 'mika';
 					fishSavedVoices = state.tts.fishSavedVoices || [];
 					fishModel = state.tts.fishModel || 's1';
 					fishVoiceId = state.tts.fishVoiceId || '';
@@ -129,6 +133,8 @@
 			await storage.setSetting('tts.fishApiKey', fishApiKey);
 			await storage.setSetting('tts.qwenEndpoint', qwenEndpoint);
 			await storage.setSetting('tts.qwenVoiceId', qwenVoiceId);
+			await storage.setSetting('tts.qwenBaseVoiceId', qwenBaseVoiceId);
+			await storage.setSetting('tts.qwenWaveVoiceId', qwenWaveVoiceId);
 			await storage.setSetting('tts.fishSavedVoices', $state.snapshot(fishSavedVoices));
 			await storage.setSetting('tts.fishModel', fishModel);
 			await storage.setSetting('tts.fishVoiceId', fishVoiceId);
@@ -160,6 +166,8 @@
 		const _key = fishApiKey;
 		const _qwenEndpoint = qwenEndpoint;
 		const _qwenVoiceId = qwenVoiceId;
+		const _qwenBaseVoiceId = qwenBaseVoiceId;
+		const _qwenWaveVoiceId = qwenWaveVoiceId;
 		const _memEnabled = memoryEnabled;
 		const _memMode = memoryMode;
 		const _memMax = memoryMaxContext;
@@ -216,6 +224,8 @@
 			<QwenVoicesSection
 				{qwenEndpoint}
 				bind:qwenVoiceId
+				bind:qwenBaseVoiceId
+				bind:qwenWaveVoiceId
 			/>
 
 			<MemorySection

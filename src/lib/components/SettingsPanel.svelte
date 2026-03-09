@@ -33,7 +33,6 @@
 		const cached = tabCache.get(tabId);
 		if (cached) return cached;
 		const loaded = tabLoaders[tabId]().catch((err) => {
-			// Clear cache so next attempt retries the import
 			tabCache.delete(tabId);
 			throw err;
 		});
@@ -46,7 +45,7 @@
 	}
 
 	function getActiveTabModule(): Promise<TabModule> {
-		retryCount; // subscribe to retries
+		retryCount;
 		return getTabModule(getActiveTabId());
 	}
 
@@ -55,43 +54,31 @@
 		tabCache.delete(tabId);
 		retryCount++;
 	}
-
-	// Swipe-down-to-close on mobile
-	let touchStartY = 0;
-	let touchStartX = 0;
-
-	function handleTouchStart(e: TouchEvent) {
-		touchStartY = e.touches[0].clientY;
-		touchStartX = e.touches[0].clientX;
-	}
-
-	function handleTouchEnd(e: TouchEvent) {
-		const deltaY = e.changedTouches[0].clientY - touchStartY;
-		const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartX);
-		if (deltaY > 80 && deltaY > deltaX && touchStartY < 160) {
-			panel.open = false;
-		}
-	}
 </script>
 
+{#if panel.open}
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div id="settings-panel" class:open={panel.open} onclick={(e) => e.stopPropagation()} ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
-	<svg class="svg-ui-bg panel-frame" preserveAspectRatio="none" viewBox="0 0 500 800">
-		<path d="M0,20 L20,0 L500,0 L500,780 L480,800 L0,800 Z" fill="var(--c-panel)" stroke="var(--c-border)" stroke-width="1" vector-effect="non-scaling-stroke"></path>
-		<line x1="20" y1="60" x2="480" y2="60" stroke="var(--c-border)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
-		<rect x="20" y="790" width="50" height="4" fill="var(--c-text-accent)" opacity="0.5"></rect>
-	</svg>
-
-	<div class="tabs-header">
-		{#each tabs as tab}
-			<button
-				class="tab-btn"
-				class:active={panel.activeTab === tab.id}
-				onclick={() => panel.activeTab = tab.id}
-			>{tab.label}</button>
-		{/each}
-		<a href="/manager" class="manager-link" title="Waifu Manager">MGR</a>
+<div id="settings-panel" onclick={(e) => e.stopPropagation()}>
+	<div class="panel-header">
+		<div class="tabs-header">
+			{#each tabs as tab}
+				<button
+					class="tab-btn"
+					class:active={panel.activeTab === tab.id}
+					onclick={() => panel.activeTab = tab.id}
+				>{tab.label}</button>
+			{/each}
+		</div>
+		<div class="header-right">
+			<a href="/manager" class="manager-link" title="Waifu Manager">MGR</a>
+			<button class="close-btn" title="Close (Esc)" onclick={() => panel.open = false}>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<line x1="18" y1="6" x2="6" y2="18"></line>
+					<line x1="6" y1="6" x2="18" y2="18"></line>
+				</svg>
+			</button>
+		</div>
 	</div>
 
 	<div class="panel-scroll">
@@ -109,70 +96,81 @@
 		{/await}
 	</div>
 </div>
+{/if}
 
 <style>
 	#settings-panel {
-		position: absolute;
-		top: clamp(56px, calc(84px * var(--desktop-ui-scale, 1)), 84px);
-		right: var(--desktop-edge-gap, 24px);
-		width: min(var(--desktop-panel-width, 380px), calc(100% - 20px));
-		height: min(var(--desktop-panel-height, 680px), calc(100% - 96px));
-		max-height: calc(100% - clamp(56px, calc(72px * var(--desktop-ui-scale, 1)), 72px));
-		pointer-events: none;
+		position: fixed;
+		inset: 0;
+		z-index: 9000;
+		pointer-events: all;
 		display: flex;
 		flex-direction: column;
-		transform-origin: top right;
-		transform: scale(0.95) translateY(-10px);
-		opacity: 0;
-		visibility: hidden;
-		transition: all 0.3s var(--ease-tech);
-		z-index: 40;
+		background: var(--c-panel, #0a0e17);
 	}
-	#settings-panel.open {
-		transform: scale(1) translateY(0);
-		opacity: 1;
-		visibility: visible;
-		pointer-events: auto;
+
+	.panel-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 16px 24px;
+		border-bottom: 1px solid var(--c-border);
+		flex-shrink: 0;
 	}
-	.svg-ui-bg {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		z-index: -1;
-		pointer-events: none;
-		filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
-	}
+
 	.tabs-header {
 		display: flex;
 		gap: 2px;
-		padding: calc(24px * var(--desktop-ui-scale, 1)) calc(24px * var(--desktop-ui-scale, 1)) calc(10px * var(--desktop-ui-scale, 1)) calc(24px * var(--desktop-ui-scale, 1));
-		height: calc(60px * var(--desktop-ui-scale, 1));
 		align-items: center;
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
 	.tabs-header::-webkit-scrollbar { display: none; }
+
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-shrink: 0;
+	}
+
 	.manager-link {
-		margin-left: auto;
 		font-family: var(--font-tech);
-		font-size: clamp(0.54rem, calc(0.6rem * var(--desktop-ui-scale, 1)), 0.6rem);
+		font-size: 0.65rem;
 		color: var(--text-muted);
 		text-decoration: none;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		padding: calc(4px * var(--desktop-ui-scale, 1)) calc(8px * var(--desktop-ui-scale, 1));
+		padding: 6px 10px;
 		border: 1px solid var(--c-border);
 		transition: all 0.2s;
 	}
 	.manager-link:hover { color: var(--c-text-accent); border-color: var(--c-text-accent); }
+
+	.close-btn {
+		width: 36px;
+		height: 36px;
+		background: transparent;
+		border: 1px solid var(--c-border);
+		color: var(--text-muted);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.close-btn svg {
+		width: 18px;
+		height: 18px;
+	}
+	.close-btn:hover { color: var(--danger, #f43f5e); border-color: var(--danger, #f43f5e); }
+
 	.tab-btn {
 		background: transparent;
 		border: none;
 		color: var(--text-muted);
-		padding: calc(6px * var(--desktop-ui-scale, 1)) calc(12px * var(--desktop-ui-scale, 1));
-		font-size: clamp(0.64rem, calc(0.75rem * var(--desktop-ui-scale, 1)), 0.75rem);
+		padding: 8px 14px;
+		font-size: 0.8rem;
 		font-family: var(--font-tech);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -185,89 +183,52 @@
 	.tab-btn.active::after {
 		content: '';
 		position: absolute;
-		bottom: calc(-8px * var(--desktop-ui-scale, 1));
+		bottom: -16px;
 		left: 0;
 		width: 100%;
 		height: 2px;
 		background: var(--c-text-accent);
 		box-shadow: 0 0 8px var(--c-text-accent);
 	}
+
 	.panel-scroll {
 		flex: 1;
 		overflow-y: auto;
-		padding: calc(20px * var(--desktop-ui-scale, 1)) calc(24px * var(--desktop-ui-scale, 1)) calc(30px * var(--desktop-ui-scale, 1)) calc(24px * var(--desktop-ui-scale, 1));
+		padding: 24px 32px 40px;
 		display: flex;
 		flex-direction: column;
-		gap: calc(20px * var(--desktop-ui-scale, 1));
-		animation: fadeIn 0.3s ease;
+		gap: 20px;
+		max-width: 600px;
+		width: 100%;
+		margin: 0 auto;
+		box-sizing: border-box;
 	}
+
 	.tab-loading, .tab-error {
 		font-family: var(--font-tech);
-		font-size: clamp(0.62rem, calc(0.75rem * var(--desktop-ui-scale, 1)), 0.75rem);
+		font-size: 0.75rem;
 		color: var(--text-muted);
-		padding: calc(12px * var(--desktop-ui-scale, 1));
+		padding: 12px;
 		border: 1px dashed var(--c-border);
 	}
-	.tab-error { color: var(--danger); display: flex; flex-direction: column; gap: calc(8px * var(--desktop-ui-scale, 1)); align-items: flex-start; }
-	.tab-error-detail { color: var(--text-dim); font-size: clamp(0.54rem, calc(0.65rem * var(--desktop-ui-scale, 1)), 0.65rem); word-break: break-all; }
+	.tab-error { color: var(--danger); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+	.tab-error-detail { color: var(--text-dim); font-size: 0.65rem; word-break: break-all; }
 	.tab-retry-btn {
-		padding: calc(8px * var(--desktop-ui-scale, 1)) calc(16px * var(--desktop-ui-scale, 1));
+		padding: 8px 16px;
 		background: transparent;
 		border: 1px solid var(--danger);
 		color: var(--danger);
 		font-family: var(--font-tech);
-		font-size: clamp(0.62rem, calc(0.75rem * var(--desktop-ui-scale, 1)), 0.75rem);
+		font-size: 0.75rem;
 		text-transform: uppercase;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 	.tab-retry-btn:hover { background: var(--danger); color: #000; }
-	@media (max-width: 900px) {
-		#settings-panel {
-			width: 100%;
-			height: 100%;
-			top: 0;
-			right: 0;
-			max-height: 100vh;
-			max-height: 100dvh;
-			transform: none;
-			background: var(--c-panel);
-			padding-top: var(--safe-top, 0px);
-			padding-bottom: var(--safe-bottom, 0px);
-		}
-		.tabs-header {
-			padding-top: calc(var(--safe-top, 0px) + 16px);
-		}
-		.tab-btn {
-			min-width: max-content;
-			padding: 8px 14px;
-			font-size: 0.8rem;
-			min-height: 44px;
-		}
-	}
-	@media (min-width: 901px) and (max-width: 1280px), (min-width: 901px) and (max-height: 860px) {
-		#settings-panel {
-			top: clamp(56px, 7vh, 72px);
-			right: 12px;
-			width: min(var(--desktop-panel-width, 340px), calc(100% - 20px));
-			height: min(600px, calc(100% - 84px));
-			max-height: calc(100% - 72px);
-		}
-		.tabs-header {
-			padding: 18px 18px 8px 18px;
-			height: 54px;
-		}
-		.tab-btn {
-			padding: 6px 10px;
-			font-size: 0.7rem;
-		}
-		.manager-link {
-			font-size: 0.55rem;
-			padding: 4px 6px;
-		}
-		.panel-scroll {
-			padding: 16px 18px 22px 18px;
-			gap: 16px;
-		}
+
+	@media (max-width: 600px) {
+		.panel-header { padding: 12px 16px; }
+		.panel-scroll { padding: 16px; }
+		.tab-btn { padding: 8px 10px; font-size: 0.72rem; min-height: 44px; }
 	}
 </style>

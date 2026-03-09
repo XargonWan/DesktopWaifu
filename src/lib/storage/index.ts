@@ -388,6 +388,8 @@ export class StorageManager {
 			await this.setSetting('tts.qwenEndpoint', normalizedQwenEndpoint);
 			await this.setSetting('tts.qwenLanguage', tts.qwenLanguage ?? 'English');
 			await this.setSetting('tts.qwenVoiceId', tts.qwenVoiceId ?? '');
+			await this.setSetting('tts.qwenBaseVoiceId', tts.qwenBaseVoiceId ?? 'gpt-sovits-v2pro-default');
+			await this.setSetting('tts.qwenWaveVoiceId', tts.qwenWaveVoiceId ?? 'mika');
 			await this.setSetting('tts.qwenQualityPreset', tts.qwenQualityPreset ?? 'fast');
 			await this.setSetting('tts.qwenLatencyMode', tts.qwenLatencyMode ?? 'fast');
 			await this.setSetting('tts.qwenEmitEveryFrames', tts.qwenEmitEveryFrames ?? null);
@@ -487,6 +489,8 @@ export class StorageManager {
 				qwenEndpoint,
 				qwenLanguage: await this.getSetting('tts.qwenLanguage', 'English'),
 				qwenVoiceId: await this.getSetting('tts.qwenVoiceId', ''),
+				qwenBaseVoiceId: await this.getSetting('tts.qwenBaseVoiceId', 'gpt-sovits-v2pro-default'),
+				qwenWaveVoiceId: await this.getSetting('tts.qwenWaveVoiceId', 'mika'),
 				qwenQualityPreset: await this.getSetting('tts.qwenQualityPreset', 'fast'),
 				qwenLatencyMode: await this.getSetting('tts.qwenLatencyMode', 'fast'),
 				qwenEmitEveryFrames: await this.getSetting('tts.qwenEmitEveryFrames', null),

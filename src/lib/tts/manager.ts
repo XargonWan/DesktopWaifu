@@ -98,6 +98,8 @@ export class TtsManager {
 	qwenEndpoint = 'http://localhost:8000';
 	qwenLanguage = 'English';
 	qwenVoiceId = '';
+	qwenBaseVoiceId = 'gpt-sovits-v2pro-default';
+	qwenWaveVoiceId = 'mika';
 	qwenLatencyMode: 'fast' | 'balanced' | 'quality' = 'fast';
 	qwenEmitEveryFrames: number | null = null;
 	qwenDecodeWindowFrames: number | null = null;
@@ -792,8 +794,12 @@ export class TtsManager {
 			latency_mode: this.qwenLatencyMode
 		};
 
+		const baseVoiceId = this.qwenBaseVoiceId.trim();
+		const waveSourceId = this.qwenWaveVoiceId.trim();
 		const voiceId = this.qwenVoiceId.trim();
-		if (voiceId) payload.voice_id = voiceId;
+		if (baseVoiceId) payload.base_voice_id = baseVoiceId;
+		if (waveSourceId) payload.wave_source_id = waveSourceId;
+		if (!baseVoiceId && !waveSourceId && voiceId) payload.voice_id = voiceId;
 
 		if (this.qwenEmitEveryFrames !== null && Number.isFinite(this.qwenEmitEveryFrames) && this.qwenEmitEveryFrames > 0) {
 			payload.emit_every_frames = Math.floor(this.qwenEmitEveryFrames);

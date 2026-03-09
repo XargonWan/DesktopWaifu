@@ -35,6 +35,23 @@ const user32 =
 			})
 		: null;
 
+/**
+ * Force Windows to recalculate the window frame and hit-test regions.
+ * Fixes WebView2 transparent windows losing right-side hit-testing after resize.
+ */
+export function refreshWindowHitTest(windowPtr: Pointer) {
+	if (!user32) return;
+	user32.symbols.SetWindowPos(
+		windowPtr,
+		null,
+		0,
+		0,
+		0,
+		0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+	);
+}
+
 export function setWindowClickThrough(windowPtr: Pointer, enabled: boolean) {
 	if (!user32) {
 		return false;

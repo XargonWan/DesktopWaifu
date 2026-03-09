@@ -6,14 +6,20 @@
 		created_at?: string;
 		updated_at?: string;
 		active?: boolean;
+		built_in?: boolean;
+		source?: string;
 	};
 
 	let {
 		qwenEndpoint,
-		qwenVoiceId = $bindable('')
+		qwenVoiceId = $bindable(''),
+		qwenBaseVoiceId = $bindable('gpt-sovits-v2pro-default'),
+		qwenWaveVoiceId = $bindable('mika')
 	}: {
 		qwenEndpoint: string;
 		qwenVoiceId: string;
+		qwenBaseVoiceId: string;
+		qwenWaveVoiceId: string;
 	} = $props();
 
 	let voices = $state<QwenVoiceInfo[]>([]);
@@ -29,16 +35,18 @@
 	let uploading = $state(false);
 	let uploadFileInput = $state<HTMLInputElement | null>(null);
 
-	let pathName = $state('');
-	let pathAudio = $state('');
-	let pathRefText = $state('');
-	let pathVoiceId = $state('');
-	let pathActivate = $state(true);
-	let registeringPath = $state(false);
-
-	let manualVoiceId = $state('');
+	let cloneName = $state('');
+	let cloneActivate = $state(true);
+	let cloningPreset = $state(false);
 
 	let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function isBaseModelVoice(voice: QwenVoiceInfo): boolean {
+		return Boolean(voice.built_in) || voice.id === 'gpt-sovits-v2pro-default';
+	}
+
+	let baseModelVoices = $derived(voices.filter(isBaseModelVoice));
+	let waveSourceVoices = $derived(voices.filter((voice) => !voice.built_in || voice.id !== 'gpt-sovits-v2pro-default'));
 
 	function normalizeEndpoint(): string {
 		const raw = (qwenEndpoint || 'http://localhost:8000').trim();
@@ -61,7 +69,6 @@
 			serverStatus = serverReady ? 'Ready' : (data?.last_error || 'Not ready');
 			if (data?.active_voice_id) {
 				qwenVoiceId = data.active_voice_id;
-				manualVoiceId = data.active_voice_id;
 			}
 		} catch (e: any) {
 			serverReady = false;
@@ -81,11 +88,27 @@
 				statusMsg = `Failed to load voices: ${data?.detail || data?.error || response.statusText}`;
 				return;
 			}
-			voices = Array.isArray(data?.items) ? data.items : [];
-			const activeVoiceId = data?.active_voice_id || voices.find(v => v.active)?.id || '';
+			const loadedVoices = Array.isArray(data?.items) ? data.items : [];
+			voices = loadedVoices;
+			if (loadedVoices.length > 0) {
+				const preferredBase = loadedVoices.find((v: QwenVoiceInfo) => v.id === 'gpt-sovits-v2pro-default')?.id
+					|| loadedVoices.find(isBaseModelVoice)?.id
+					|| loadedVoices[0]?.id
+					|| '';
+				const preferredWave = loadedVoices.find((v: QwenVoiceInfo) => v.id === 'mika')?.id
+					|| loadedVoices.find((v: QwenVoiceInfo) => v.id !== 'gpt-sovits-v2pro-default')?.id
+					|| loadedVoices[0]?.id
+					|| '';
+				if (!loadedVoices.some((v: QwenVoiceInfo) => v.id === qwenBaseVoiceId && isBaseModelVoice(v))) {
+					qwenBaseVoiceId = preferredBase;
+				}
+				if (!loadedVoices.some((v: QwenVoiceInfo) => v.id === qwenWaveVoiceId) || qwenWaveVoiceId === 'gpt-sovits-v2pro-default') {
+					qwenWaveVoiceId = preferredWave;
+				}
+			}
+			const activeVoiceId = data?.active_voice_id || loadedVoices.find((v: QwenVoiceInfo) => v.active)?.id || '';
 			if (activeVoiceId) {
 				qwenVoiceId = activeVoiceId;
-				manualVoiceId = activeVoiceId;
 			}
 			statusMsg = voices.length > 0 ? `${voices.length} voice preset(s) loaded` : 'No voice presets yet';
 		} catch (e: any) {
@@ -121,7 +144,6 @@
 				return;
 			}
 			qwenVoiceId = id;
-			manualVoiceId = id;
 			statusMsg = `Selected: ${data?.voice?.name || id}`;
 			await refresh();
 		} catch (e: any) {
@@ -142,7 +164,6 @@
 			}
 			if (qwenVoiceId === voiceId) {
 				qwenVoiceId = '';
-				manualVoiceId = '';
 			}
 			statusMsg = 'Voice deleted';
 			await refresh();
@@ -170,6 +191,7 @@
 			form.append('audio_file', file);
 			form.append('activate', String(uploadActivate));
 			if (uploadRefText.trim()) form.append('ref_text', uploadRefText.trim());
+			if (qwenBaseVoiceId.trim()) form.append('base_voice_id', qwenBaseVoiceId.trim());
 
 			const response = await fetch(`${normalizeEndpoint()}/v1/voices/upload`, {
 				method: 'POST',
@@ -183,7 +205,6 @@
 			const selectedId = data?.voice?.id || '';
 			if (uploadActivate && selectedId) {
 				qwenVoiceId = selectedId;
-				manualVoiceId = selectedId;
 			}
 			uploadName = '';
 			uploadRefText = '';
@@ -198,48 +219,45 @@
 		}
 	}
 
-	async function registerPathVoice() {
-		if (!pathName.trim()) {
+	async function cloneFromPreset() {
+		if (!cloneName.trim()) {
 			statusMsg = 'Voice name is required';
 			return;
 		}
-		if (!pathAudio.trim()) {
-			statusMsg = 'Reference audio path is required';
+		if (!qwenWaveVoiceId.trim()) {
+			statusMsg = 'Choose a wave source first';
 			return;
 		}
 
-		registeringPath = true;
+		cloningPreset = true;
 		statusMsg = '';
 		try {
-			const payload: Record<string, any> = {
-				name: pathName.trim(),
-				ref_audio: pathAudio.trim(),
-				activate: pathActivate
-			};
-			if (pathRefText.trim()) payload.ref_text = pathRefText.trim();
-			if (pathVoiceId.trim()) payload.voice_id = pathVoiceId.trim();
-
-			const response = await fetch(`${normalizeEndpoint()}/v1/voices/register-path`, {
+			const response = await fetch(`${normalizeEndpoint()}/v1/voices/clone-preset`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
+				body: JSON.stringify({
+					name: cloneName.trim(),
+					source_voice_id: qwenWaveVoiceId.trim(),
+					base_voice_id: qwenBaseVoiceId.trim(),
+					activate: cloneActivate,
+				})
 			});
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok) {
-				statusMsg = `Register path failed: ${data?.detail || data?.error || response.statusText}`;
+				statusMsg = `Clone preset failed: ${data?.detail || data?.error || response.statusText}`;
 				return;
 			}
 			const selectedId = data?.voice?.id || '';
-			if (pathActivate && selectedId) {
+			if (cloneActivate && selectedId) {
 				qwenVoiceId = selectedId;
-				manualVoiceId = selectedId;
 			}
-			statusMsg = `Registered voice: ${data?.voice?.name || selectedId || 'ok'}`;
+			cloneName = '';
+			statusMsg = `Created mixed preset: ${data?.voice?.name || selectedId || 'ok'}`;
 			await refresh();
 		} catch (e: any) {
-			statusMsg = `Register path failed: ${e?.message || 'Unknown error'}`;
+			statusMsg = `Clone preset failed: ${e?.message || 'Unknown error'}`;
 		} finally {
-			registeringPath = false;
+			cloningPreset = false;
 		}
 	}
 
@@ -267,9 +285,6 @@
 		};
 	});
 
-	$effect(() => {
-		manualVoiceId = qwenVoiceId || '';
-	});
 </script>
 
 <div class="section-card">
@@ -291,20 +306,23 @@
 	</div>
 
 	<div class="sub-section">
-		<h3 class="sub-title">Active Voice ID</h3>
-		<div class="row">
-			<input
-				type="text"
-				class="input-tech"
-				style="flex:1"
-				bind:value={manualVoiceId}
-				placeholder="Voice ID (optional)"
-			/>
-			<button class="btn-init" onclick={() => selectVoice(manualVoiceId)} disabled={!manualVoiceId.trim()}>
-				Use ID
-			</button>
-		</div>
-		<small class="hint">Leave empty to use the server's currently active Genie preset.</small>
+		<h3 class="sub-title">Base Model</h3>
+		<select class="input-tech" bind:value={qwenBaseVoiceId}>
+			{#each baseModelVoices as voice}
+				<option value={voice.id}>{voice.name}{voice.built_in ? ' (built-in)' : ''}</option>
+			{/each}
+		</select>
+		<small class="hint">Pick the base GPT-SoVITS / Genie model you want to synthesize with.</small>
+	</div>
+
+	<div class="sub-section">
+		<h3 class="sub-title">Wave Source</h3>
+		<select class="input-tech" bind:value={qwenWaveVoiceId}>
+			{#each waveSourceVoices as voice}
+				<option value={voice.id}>{voice.name}{voice.built_in ? ' (built-in prompt)' : ''}</option>
+			{/each}
+		</select>
+		<small class="hint">Pick the stored reference WAV/text source you want to pair with the base model.</small>
 	</div>
 
 	<div class="sub-section">
@@ -318,10 +336,31 @@
 						<div class="voice-info">
 							<span class="voice-name">{voice.name}</span>
 							<span class="voice-id">{voice.id}</span>
+							<div class="voice-tags">
+								{#if qwenVoiceId === voice.id || voice.active}
+									<span class="voice-tag active-tag">active</span>
+								{/if}
+								{#if qwenBaseVoiceId === voice.id}
+									<span class="voice-tag base-tag">base model</span>
+								{/if}
+								{#if qwenWaveVoiceId === voice.id}
+									<span class="voice-tag wave-tag">wave source</span>
+								{/if}
+								{#if voice.built_in}
+									<span class="voice-tag built-in-tag">built-in</span>
+								{/if}
+								{#if voice.source === 'upload'}
+									<span class="voice-tag upload-tag">uploaded wave</span>
+								{:else if voice.source === 'preset-clone'}
+									<span class="voice-tag clone-tag">mixed preset</span>
+								{/if}
+							</div>
 						</div>
 						<div class="voice-actions">
 							<button class="btn-small" onclick={() => selectVoice(voice.id)}>Select</button>
-							<button class="btn-small danger" onclick={() => deleteVoice(voice.id)}>Delete</button>
+							{#if !voice.built_in}
+								<button class="btn-small danger" onclick={() => deleteVoice(voice.id)}>Delete</button>
+							{/if}
 						</div>
 					</div>
 				{/each}
@@ -330,9 +369,9 @@
 	</div>
 
 	<div class="sub-section">
-		<h3 class="sub-title">Upload New Voice</h3>
-		<input type="text" class="input-tech" bind:value={uploadName} placeholder="Voice name..." />
-		<input type="text" class="input-tech" bind:value={uploadRefText} placeholder="Reference text (optional)" />
+		<h3 class="sub-title">Upload Wave Preset</h3>
+		<input type="text" class="input-tech" bind:value={uploadName} placeholder="Wave preset name..." />
+		<input type="text" class="input-tech" bind:value={uploadRefText} placeholder="Reference text (optional, auto-transcribes if empty)" />
 		<div class="toggle-row">
 			<label>
 				<input type="checkbox" bind:checked={uploadActivate} />
@@ -346,27 +385,24 @@
 			bind:this={uploadFileInput}
 		/>
 		<button class="btn-tech" onclick={uploadVoice} disabled={uploading}>
-			{uploading ? 'Uploading...' : 'Upload Voice'}
+			{uploading ? 'Uploading...' : 'Upload Wave Preset'}
 		</button>
-		<small class="hint">Use the file picker here directly. New presets clone against Mika by default, and empty ref text will be auto-transcribed.</small>
+		<small class="hint">This stores a reusable reference WAV/text preset. It will use the selected base model above when created.</small>
 	</div>
 
 	<div class="sub-section">
-		<h3 class="sub-title">Register By Path</h3>
-		<input type="text" class="input-tech" bind:value={pathName} placeholder="Voice name..." />
-		<input type="text" class="input-tech" bind:value={pathAudio} placeholder="Absolute audio path on server machine..." />
-		<input type="text" class="input-tech" bind:value={pathRefText} placeholder="Reference text (optional)" />
-		<input type="text" class="input-tech" bind:value={pathVoiceId} placeholder="Voice ID override (optional)" />
+		<h3 class="sub-title">Create Mixed Preset</h3>
+		<input type="text" class="input-tech" bind:value={cloneName} placeholder="New mixed preset name..." />
 		<div class="toggle-row">
 			<label>
-				<input type="checkbox" bind:checked={pathActivate} />
+				<input type="checkbox" bind:checked={cloneActivate} />
 				activate
 			</label>
 		</div>
-		<button class="btn-tech" onclick={registerPathVoice} disabled={registeringPath}>
-			{registeringPath ? 'Registering...' : 'Register Path Voice'}
+		<button class="btn-tech" onclick={cloneFromPreset} disabled={cloningPreset}>
+			{cloningPreset ? 'Creating...' : 'Create Mixed Preset'}
 		</button>
-		<small class="hint">If reference text is empty, the Genie bridge will transcribe the audio and keep Mika as the base character.</small>
+		<small class="hint">This combines the selected base model above with the selected wave source above. No path fields, no manual ids.</small>
 	</div>
 
 	{#if statusMsg}
@@ -486,6 +522,28 @@
 	.voice-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 	.voice-name { font-size: 0.8rem; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; }
 	.voice-id { font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-tech); }
+	.voice-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: 6px;
+	}
+	.voice-tag {
+		padding: 2px 6px;
+		border: 1px solid rgba(67, 165, 255, 0.35);
+		background: rgba(0,0,0,0.24);
+		color: var(--c-text-accent);
+		font-size: 0.58rem;
+		font-family: var(--font-tech);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+	.active-tag { border-color: rgba(84, 241, 178, 0.45); color: #8bffd0; }
+	.base-tag { border-color: rgba(87, 186, 255, 0.45); color: #8bd7ff; }
+	.wave-tag { border-color: rgba(211, 145, 255, 0.4); color: #e0b6ff; }
+	.built-in-tag { border-color: rgba(255, 218, 128, 0.35); color: #ffd98a; }
+	.upload-tag { border-color: rgba(104, 227, 194, 0.38); color: #8bf7d6; }
+	.clone-tag { border-color: rgba(255, 148, 112, 0.4); color: #ffb89c; }
 	.voice-actions { display: flex; gap: 4px; }
 	.btn-small {
 		padding: 3px 8px;

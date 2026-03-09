@@ -208,6 +208,8 @@ let ttsFishLatency = $state<'normal' | 'balanced'>('balanced');
 let ttsQwenEndpoint = $state('http://localhost:8000');
 let ttsQwenLanguage = $state('English');
 let ttsQwenVoiceId = $state('');
+let ttsQwenBaseVoiceId = $state('gpt-sovits-v2pro-default');
+let ttsQwenWaveVoiceId = $state('mika');
 let ttsQwenQualityPreset = $state<'fast' | 'balanced' | 'quality' | 'custom'>('fast');
 let ttsQwenLatencyMode = $state<'fast' | 'balanced' | 'quality'>('fast');
 let ttsQwenEmitEveryFrames = $state<number | null>(null);
@@ -242,6 +244,10 @@ export function getTtsSettings() {
 		set qwenLanguage(v: string) { ttsQwenLanguage = v; },
 		get qwenVoiceId() { return ttsQwenVoiceId; },
 		set qwenVoiceId(v: string) { ttsQwenVoiceId = v; },
+		get qwenBaseVoiceId() { return ttsQwenBaseVoiceId; },
+		set qwenBaseVoiceId(v: string) { ttsQwenBaseVoiceId = v; },
+		get qwenWaveVoiceId() { return ttsQwenWaveVoiceId; },
+		set qwenWaveVoiceId(v: string) { ttsQwenWaveVoiceId = v; },
 		get qwenQualityPreset() { return ttsQwenQualityPreset; },
 		set qwenQualityPreset(v: 'fast' | 'balanced' | 'quality' | 'custom') { ttsQwenQualityPreset = v; },
 		get qwenLatencyMode() { return ttsQwenLatencyMode; },
