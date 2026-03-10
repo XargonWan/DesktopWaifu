@@ -5,7 +5,6 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
-import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js';
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { TAARenderPass } from 'three/examples/jsm/postprocessing/TAARenderPass.js';
 import { OutlineEffect } from 'three/examples/jsm/effects/OutlineEffect.js';
@@ -14,72 +13,6 @@ import { BleachBypassShader } from 'three/examples/jsm/shaders/BleachBypassShade
 import { ColorCorrectionShader } from 'three/examples/jsm/shaders/ColorCorrectionShader.js';
 import { getRenderPixelRatio, getViewportSize, isDesktopShell } from './scene.js';
 
-const ChromaticAberrationShader = {
-	uniforms: {
-		tDiffuse: { value: null },
-		amount: { value: 0.0015 },
-		angle: { value: 0.0 }
-	},
-	vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-	fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float amount;
-    uniform float angle;
-    varying vec2 vUv;
-    void main() {
-      vec2 offset = amount * vec2(cos(angle), sin(angle));
-      vec4 cr = texture2D(tDiffuse, vUv + offset);
-      vec4 cga = texture2D(tDiffuse, vUv);
-      vec4 cb = texture2D(tDiffuse, vUv - offset);
-      gl_FragColor = vec4(cr.r, cga.g, cb.b, cga.a);
-    }
-  `
-};
-
-const FilmGrainShader = {
-	uniforms: {
-		tDiffuse: { value: null },
-		time: { value: 0.0 },
-		grainAmount: { value: 0.05 },
-		vignetteAmount: { value: 0.3 },
-		vignetteHardness: { value: 0.8 }
-	},
-	vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-	fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float time;
-    uniform float grainAmount;
-    uniform float vignetteAmount;
-    uniform float vignetteHardness;
-    varying vec2 vUv;
-    float random(vec2 co) {
-      return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
-    }
-    void main() {
-      vec4 color = texture2D(tDiffuse, vUv);
-      float grain = random(vUv * time) * grainAmount;
-      color.rgb += grain - grainAmount * 0.5;
-      vec2 uv = vUv * (1.0 - vUv.yx);
-      float vig = uv.x * uv.y * 15.0;
-      vig = pow(vig, vignetteHardness);
-      color.rgb = mix(color.rgb, color.rgb * vig, vignetteAmount);
-      gl_FragColor = color;
-    }
-  `
-};
-
 export interface PostProcessingRefs {
 	composer: EffectComposer;
 	outlineEffect: OutlineEffect;
@@ -87,10 +20,7 @@ export interface PostProcessingRefs {
 	fxaaPass: ShaderPass;
 	smaaPass: SMAAPass;
 	taaPass: TAARenderPass;
-	chromaticAberrationPass: ShaderPass;
-	filmGrainPass: ShaderPass;
 	outlinePass: OutlinePass;
-	glitchPass: GlitchPass;
 	bleachBypassPass: ShaderPass;
 	colorCorrectionPass: ShaderPass;
 }
@@ -138,10 +68,6 @@ export function initPostProcessing(
 	outlinePass.enabled = false;
 	composer.addPass(outlinePass);
 
-	const glitchPass = new GlitchPass();
-	glitchPass.enabled = false;
-	composer.addPass(glitchPass);
-
 	const bleachBypassPass = new ShaderPass(BleachBypassShader);
 	bleachBypassPass.uniforms['opacity'].value = 0.2;
 	bleachBypassPass.enabled = false;
@@ -152,14 +78,6 @@ export function initPostProcessing(
 	colorCorrectionPass.uniforms['mulRGB'].value.set(1.1, 1.1, 1.1);
 	colorCorrectionPass.enabled = false;
 	composer.addPass(colorCorrectionPass);
-
-	const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader);
-	chromaticAberrationPass.enabled = false;
-	composer.addPass(chromaticAberrationPass);
-
-	const filmGrainPass = new ShaderPass(FilmGrainShader);
-	filmGrainPass.enabled = false;
-	composer.addPass(filmGrainPass);
 
 	const pixelRatio = renderer.getPixelRatio();
 	const fxaaPass = new ShaderPass(FXAAShader);
@@ -187,10 +105,7 @@ export function initPostProcessing(
 		fxaaPass,
 		smaaPass,
 		taaPass,
-		chromaticAberrationPass,
-		filmGrainPass,
 		outlinePass,
-		glitchPass,
 		bleachBypassPass,
 		colorCorrectionPass
 	};

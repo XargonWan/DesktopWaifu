@@ -96,9 +96,6 @@ export function getVrmState() {
 // VRM visual settings (post-processing, shaders, lighting)
 let ppOutline = $state(false);
 let ppBloom = $state(false);
-let ppChroma = $state(false);
-let ppGrain = $state(false);
-let ppGlitch = $state(false);
 let ppFxaa = $state(false);
 let ppSmaa = $state(false);
 let ppTaa = $state(false);
@@ -108,11 +105,6 @@ let ppColorCorr = $state(false);
 let shBloomStrength = $state(0.4);
 let shBloomRadius = $state(0.6);
 let shBloomThreshold = $state(0.7);
-let shChromaAmount = $state(0.0015);
-let shChromaAngle = $state(0);
-let shGrainAmount = $state(0.05);
-let shVignetteAmount = $state(0.3);
-let shVignetteHardness = $state(0.8);
 let shBleachOpacity = $state(0.2);
 let shColorPowR = $state(1.4);
 let shColorPowG = $state(1.45);
@@ -130,9 +122,6 @@ export function getVrmVisuals() {
 		// Post-processing toggles
 		get outline() { return ppOutline; }, set outline(v: boolean) { ppOutline = v; },
 		get bloom() { return ppBloom; }, set bloom(v: boolean) { ppBloom = v; },
-		get chroma() { return ppChroma; }, set chroma(v: boolean) { ppChroma = v; },
-		get grain() { return ppGrain; }, set grain(v: boolean) { ppGrain = v; },
-		get glitch() { return ppGlitch; }, set glitch(v: boolean) { ppGlitch = v; },
 		get fxaa() { return ppFxaa; }, set fxaa(v: boolean) { ppFxaa = v; },
 		get smaa() { return ppSmaa; }, set smaa(v: boolean) { ppSmaa = v; },
 		get taa() { return ppTaa; }, set taa(v: boolean) { ppTaa = v; },
@@ -142,11 +131,6 @@ export function getVrmVisuals() {
 		get bloomStrength() { return shBloomStrength; }, set bloomStrength(v: number) { shBloomStrength = v; },
 		get bloomRadius() { return shBloomRadius; }, set bloomRadius(v: number) { shBloomRadius = v; },
 		get bloomThreshold() { return shBloomThreshold; }, set bloomThreshold(v: number) { shBloomThreshold = v; },
-		get chromaAmount() { return shChromaAmount; }, set chromaAmount(v: number) { shChromaAmount = v; },
-		get chromaAngle() { return shChromaAngle; }, set chromaAngle(v: number) { shChromaAngle = v; },
-		get grainAmount() { return shGrainAmount; }, set grainAmount(v: number) { shGrainAmount = v; },
-		get vignetteAmount() { return shVignetteAmount; }, set vignetteAmount(v: number) { shVignetteAmount = v; },
-		get vignetteHardness() { return shVignetteHardness; }, set vignetteHardness(v: number) { shVignetteHardness = v; },
 		get bleachOpacity() { return shBleachOpacity; }, set bleachOpacity(v: number) { shBleachOpacity = v; },
 		get colorPowR() { return shColorPowR; }, set colorPowR(v: number) { shColorPowR = v; },
 		get colorPowG() { return shColorPowG; }, set colorPowG(v: number) { shColorPowG = v; },

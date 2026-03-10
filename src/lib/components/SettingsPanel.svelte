@@ -54,6 +54,7 @@
 		tabCache.delete(tabId);
 		retryCount++;
 	}
+
 </script>
 
 {#if panel.open}
@@ -106,7 +107,15 @@
 		pointer-events: all;
 		display: flex;
 		flex-direction: column;
-		background: var(--c-panel, #0a0e17);
+		background:
+			linear-gradient(
+				90deg,
+				rgba(10, 14, 23, 0) 0%,
+				rgba(10, 14, 23, 0.08) 42%,
+				rgba(10, 14, 23, 0.56) 58%,
+				rgba(10, 14, 23, 0.9) 72%,
+				rgba(10, 14, 23, 0.96) 100%
+			);
 	}
 
 	.panel-header {
@@ -116,6 +125,11 @@
 		padding: 16px 24px;
 		border-bottom: 1px solid var(--c-border);
 		flex-shrink: 0;
+		width: min(36vw, 560px);
+		margin-left: auto;
+		background: rgba(10, 14, 23, 0.9);
+		border-left: 1px solid var(--c-border);
+		backdrop-filter: blur(16px);
 	}
 
 	.tabs-header {
@@ -198,10 +212,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		max-width: 600px;
-		width: 100%;
-		margin: 0 auto;
-		box-sizing: border-box;
+		width: min(36vw, 560px);
+		max-width: min(36vw, 560px);
+		margin: 0 0 0 auto;
+		padding: 20px 28px 36px;
+		background: rgba(10, 14, 23, 0.86);
+		border-left: 1px solid var(--c-border);
+		backdrop-filter: blur(16px);
 	}
 
 	.tab-loading, .tab-error {
@@ -230,5 +247,10 @@
 		.panel-header { padding: 12px 16px; }
 		.panel-scroll { padding: 16px; }
 		.tab-btn { padding: 8px 10px; font-size: 0.72rem; min-height: 44px; }
+		.panel-header,
+		.panel-scroll {
+			width: 100%;
+			max-width: 100%;
+		}
 	}
 </style>

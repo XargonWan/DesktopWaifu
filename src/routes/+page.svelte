@@ -71,6 +71,7 @@
 	});
 	const storage = getStorageManager();
 	const INTERACTIVE_CHROME_IDLE_MS = 10000;
+	let vrmPreviewMode = $derived(panel.open);
 
 	function clearInteractiveChromeHideTimer() {
 		if (interactiveChromeHideTimer) {
@@ -448,7 +449,12 @@
 			handleUiActivity();
 			if (event.key === 'Escape') {
 				event.preventDefault();
-				panel.toggle();
+				if (panel.open) {
+					panel.open = false;
+				} else {
+					panel.activeTab = 'vrm';
+					panel.open = true;
+				}
 			} else if (event.key === 'F6') {
 				event.preventDefault();
 				handleChatVisibilityToggle();
@@ -596,9 +602,6 @@
 					// Toggles
 					if (v.outline !== undefined) { visuals.outline = v.outline; vrmState.useOutlineEffect = v.outline; }
 					if (v.bloom !== undefined) visuals.bloom = v.bloom;
-					if (v.chroma !== undefined) visuals.chroma = v.chroma;
-					if (v.grain !== undefined) visuals.grain = v.grain;
-					if (v.glitch !== undefined) visuals.glitch = v.glitch;
 					if (v.fxaa !== undefined) visuals.fxaa = v.fxaa;
 					if (v.smaa !== undefined) visuals.smaa = v.smaa;
 					if (v.taa !== undefined) visuals.taa = v.taa;
@@ -608,11 +611,6 @@
 					if (v.bloomStrength !== undefined) visuals.bloomStrength = v.bloomStrength;
 					if (v.bloomRadius !== undefined) visuals.bloomRadius = v.bloomRadius;
 					if (v.bloomThreshold !== undefined) visuals.bloomThreshold = v.bloomThreshold;
-					if (v.chromaAmount !== undefined) visuals.chromaAmount = v.chromaAmount;
-					if (v.chromaAngle !== undefined) visuals.chromaAngle = v.chromaAngle;
-					if (v.grainAmount !== undefined) visuals.grainAmount = v.grainAmount;
-					if (v.vignetteAmount !== undefined) visuals.vignetteAmount = v.vignetteAmount;
-					if (v.vignetteHardness !== undefined) visuals.vignetteHardness = v.vignetteHardness;
 					if (v.bleachOpacity !== undefined) visuals.bleachOpacity = v.bleachOpacity;
 					if (v.colorPowR !== undefined) visuals.colorPowR = v.colorPowR;
 					if (v.colorPowG !== undefined) visuals.colorPowG = v.colorPowG;
@@ -629,8 +627,7 @@
 					setTimeout(() => {
 						// Toggle passes
 						const passToggles: Record<string, boolean> = {
-							bloom: visuals.bloom, chromatic: visuals.chroma, grain: visuals.grain,
-							glitch: visuals.glitch, fxaa: visuals.fxaa, smaa: visuals.smaa,
+							bloom: visuals.bloom, fxaa: visuals.fxaa, smaa: visuals.smaa,
 							taa: visuals.taa, bleach: visuals.bleach, colorCorrection: visuals.colorCorr
 						};
 						for (const [name, enabled] of Object.entries(passToggles)) {
@@ -640,11 +637,6 @@
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'strength', value: visuals.bloomStrength } }));
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'radius', value: visuals.bloomRadius } }));
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'threshold', value: visuals.bloomThreshold } }));
-						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'chromatic', uniform: 'amount', value: visuals.chromaAmount } }));
-						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'chromatic', uniform: 'angle', value: visuals.chromaAngle } }));
-						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'grainAmount', value: visuals.grainAmount } }));
-						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteAmount', value: visuals.vignetteAmount } }));
-						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteHardness', value: visuals.vignetteHardness } }));
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bleach', uniform: 'opacity', value: visuals.bleachOpacity } }));
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powR', value: visuals.colorPowR } }));
 						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powG', value: visuals.colorPowG } }));
@@ -848,9 +840,6 @@
 			if (!ppRefs) return;
 			const passMap: Record<string, any> = {
 				bloom: ppRefs.bloomPass,
-				chromatic: ppRefs.chromaticAberrationPass,
-				grain: ppRefs.filmGrainPass,
-				glitch: ppRefs.glitchPass,
 				fxaa: ppRefs.fxaaPass,
 				smaa: ppRefs.smaaPass,
 				taa: ppRefs.taaPass,
@@ -867,8 +856,6 @@
 			if (!ppRefs) return;
 			const passMap: Record<string, any> = {
 				bloom: ppRefs.bloomPass,
-				chromatic: ppRefs.chromaticAberrationPass,
-				grain: ppRefs.filmGrainPass,
 				bleach: ppRefs.bleachBypassPass,
 				colorCorrection: ppRefs.colorCorrectionPass,
 				taa: ppRefs.taaPass
@@ -1034,12 +1021,9 @@
 			visuals: {
 				realisticMode: vrmState.realisticMode, autoRotate: vrmState.autoRotate,
 				crossfadeDuration: vrmState.crossfadeDuration, postProcessingEnabled: vrmState.postProcessingEnabled,
-				outline: visuals.outline, bloom: visuals.bloom, chroma: visuals.chroma,
-				grain: visuals.grain, glitch: visuals.glitch, fxaa: visuals.fxaa,
+				outline: visuals.outline, bloom: visuals.bloom, fxaa: visuals.fxaa,
 				smaa: visuals.smaa, taa: visuals.taa, bleach: visuals.bleach, colorCorr: visuals.colorCorr,
 				bloomStrength: visuals.bloomStrength, bloomRadius: visuals.bloomRadius, bloomThreshold: visuals.bloomThreshold,
-				chromaAmount: visuals.chromaAmount, chromaAngle: visuals.chromaAngle,
-				grainAmount: visuals.grainAmount, vignetteAmount: visuals.vignetteAmount, vignetteHardness: visuals.vignetteHardness,
 				bleachOpacity: visuals.bleachOpacity, colorPowR: visuals.colorPowR, colorPowG: visuals.colorPowG, colorPowB: visuals.colorPowB,
 				taaSampleLevel: visuals.taaSampleLevel,
 				keyLight: visuals.keyLight, fillLight: visuals.fillLight, rimLight: visuals.rimLight,
@@ -1118,7 +1102,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="shell" class:click-through={windowInteraction.clickThrough} style={`--ui-scale: ${uiScale};`} onclick={handleClickOutside}>
-	<VrmCanvas bind:this={vrmCanvas} />
+	<VrmCanvas bind:this={vrmCanvas} previewMode={vrmPreviewMode} />
 	<div class="drag-surface electrobun-webkit-app-region-drag"></div>
 	<div class="resize-hitbox edge-n" onpointerdown={(event) => startWindowResize('n', event)}></div>
 	<div class="resize-hitbox edge-s" onpointerdown={(event) => startWindowResize('s', event)}></div>

@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { BrowserView, BrowserWindow, GlobalShortcut, Screen, Tray, Updater, ffi } from './electrobun-runtime';
 import { createFishRpcHandlers } from './fish.js';
@@ -11,6 +11,8 @@ import { setWindowClickThrough, refreshWindowHitTest } from './windows-click-thr
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
+const MIN_WINDOW_WIDTH = 1280;
+const MIN_WINDOW_HEIGHT = 720;
 
 async function getMainViewUrl(): Promise<string> {
 	const channel = await Updater.localInfo.channel();
@@ -30,14 +32,79 @@ async function getMainViewUrl(): Promise<string> {
 const url = await getMainViewUrl();
 const display = Screen.getPrimaryDisplay();
 const displayBounds = display.bounds;
+const windowStatePath = resolveWindowStatePath();
+let persistWindowStateTimer: ReturnType<typeof setTimeout> | null = null;
+
+type PersistedWindowState = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
+
+function resolveWindowStatePath() {
+	const appDataRoot =
+		Bun.env.APPDATA ||
+		Bun.env.LOCALAPPDATA ||
+		Bun.env.XDG_CONFIG_HOME ||
+		(Bun.env.HOME ? join(Bun.env.HOME, '.config') : process.cwd());
+
+	const dir = join(appDataRoot, 'DesktopWaifu');
+	mkdirSync(dir, { recursive: true });
+	return join(dir, 'window-state.json');
+}
+
+function isValidPersistedWindowState(value: unknown): value is PersistedWindowState {
+	if (!value || typeof value !== 'object') return false;
+	const frame = value as Record<string, unknown>;
+	return ['x', 'y', 'width', 'height'].every((key) => typeof frame[key] === 'number');
+}
 
 function getInitialFrame() {
-	return {
+	const fallback = {
 		x: displayBounds.x,
 		y: displayBounds.y,
 		width: displayBounds.width,
 		height: displayBounds.height
 	};
+
+	if (!existsSync(windowStatePath)) {
+		return fallback;
+	}
+
+	try {
+		const parsed = JSON.parse(readFileSync(windowStatePath, 'utf8'));
+		if (!isValidPersistedWindowState(parsed)) {
+			return fallback;
+		}
+
+		return {
+			x: Math.round(parsed.x),
+			y: Math.round(parsed.y),
+			width: Math.max(MIN_WINDOW_WIDTH, Math.round(parsed.width)),
+			height: Math.max(MIN_WINDOW_HEIGHT, Math.round(parsed.height))
+		};
+	} catch {
+		return fallback;
+	}
+}
+
+function persistWindowState(frame: PersistedWindowState) {
+	try {
+		writeFileSync(windowStatePath, JSON.stringify(frame, null, 2), 'utf8');
+	} catch (error) {
+		console.warn('[DesktopWaifu] Failed to persist window state:', error);
+	}
+}
+
+function schedulePersistWindowState(frame: PersistedWindowState) {
+	if (persistWindowStateTimer) {
+		clearTimeout(persistWindowStateTimer);
+	}
+	persistWindowStateTimer = setTimeout(() => {
+		persistWindowStateTimer = null;
+		persistWindowState(frame);
+	}, 150);
 }
 
 const initialFrame = getInitialFrame();
@@ -74,6 +141,7 @@ appRpc = BrowserView.defineRPC<WebWaifuElectrobunRPC>({
 			windowSetFrame(frame) {
 				mainWindow.setFrame(frame.x, frame.y, frame.width, frame.height);
 				refreshWindowHitTest(mainWindow.ptr);
+				schedulePersistWindowState(frame);
 				return { ok: true as const };
 			},
 			windowStartMove() {
@@ -262,6 +330,16 @@ tray.on('tray-clicked', (event) => {
 });
 
 mainWindow.on('close', () => {
+	if (persistWindowStateTimer) {
+		clearTimeout(persistWindowStateTimer);
+		persistWindowStateTimer = null;
+	}
+	try {
+		const frame = mainWindow.getFrame();
+		persistWindowState(frame);
+	} catch {
+		// best effort only
+	}
 	GlobalShortcut.unregisterAll();
 	tray.remove();
 });

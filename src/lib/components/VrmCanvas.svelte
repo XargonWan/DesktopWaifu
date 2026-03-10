@@ -5,6 +5,8 @@
 	import type { SceneRefs } from '../vrm/scene.js';
 	import type { PostProcessingRefs } from '../vrm/postprocessing.js';
 
+	export let previewMode = false;
+
 	const vrmState = getVrmState();
 	const seqState = getSequencerState();
 	const ttsManager = getTtsManager();
@@ -77,8 +79,7 @@
 	function hasActivePass(pp: PostProcessingRefs | null): boolean {
 		if (!pp) return false;
 		return pp.bloomPass.enabled || pp.fxaaPass.enabled || pp.smaaPass.enabled ||
-			pp.chromaticAberrationPass.enabled || pp.filmGrainPass.enabled ||
-			pp.glitchPass.enabled || pp.outlinePass.enabled ||
+			pp.outlinePass.enabled ||
 			pp.bleachBypassPass.enabled || pp.colorCorrectionPass.enabled;
 	}
 
@@ -128,11 +129,6 @@
 				if (vrmState.mixer) {
 					vrmState.mixer.timeScale = seqState.speed;
 					vrmState.mixer.update(delta);
-				}
-
-				// Update film grain time only when the pass is actually enabled
-				if (ppRefs.filmGrainPass?.enabled && vrmState.postProcessingEnabled) {
-					ppRefs.filmGrainPass.uniforms['time'].value = performance.now() * 0.001;
 				}
 
 				// Render — bypass composer when no effects are enabled
@@ -311,7 +307,7 @@
 	});
 </script>
 
-<canvas bind:this={canvasEl} id="c"></canvas>
+<canvas bind:this={canvasEl} id="c" class:preview-mode={previewMode}></canvas>
 
 <style>
 	#c {
@@ -322,5 +318,11 @@
 		height: 100%;
 		z-index: 0;
 		display: block;
+		transition: transform 240ms ease, opacity 180ms ease;
+		transform-origin: center center;
+	}
+
+	#c.preview-mode {
+		transform: translateX(-13%) scale(0.9);
 	}
 </style>
