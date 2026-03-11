@@ -24,6 +24,7 @@ const targetOs = process.env.ELECTROBUN_OS;
 const buildDir = process.env.ELECTROBUN_BUILD_DIR;
 const artifactDir = process.env.ELECTROBUN_ARTIFACT_DIR;
 const appName = process.env.ELECTROBUN_APP_NAME;
+const extractorOverridePath = process.env.ELECTROBUN_EXTRACTOR_PATH;
 
 if (targetOs !== 'win' || buildEnv !== 'stable') {
 	console.log('[postPackage] Skipping Windows setup patch for non-stable/non-win build');
@@ -35,10 +36,16 @@ if (!buildDir || !artifactDir || !appName) {
 }
 
 const projectRoot = process.cwd();
-const debugExtractorPath = join(projectRoot, 'node_modules/electrobun/src/extractor/zig-out/bin/extractor.exe');
+const debugExtractorCandidates = [
+	extractorOverridePath,
+	join(projectRoot, 'patches/electrobun/win-extractor/extractor.exe'),
+	join(projectRoot, 'node_modules/electrobun/src/extractor/zig-out/bin/extractor.exe'),
+].filter(Boolean);
 
-if (!existsSync(debugExtractorPath)) {
-	fail(`Debug extractor not found: ${debugExtractorPath}`);
+const debugExtractorPath = debugExtractorCandidates.find((candidate) => existsSync(candidate));
+
+if (!debugExtractorPath) {
+	fail(`Debug extractor not found. Checked: ${debugExtractorCandidates.join(', ')}`);
 }
 
 const setupExePath = join(buildDir, `${appName}-Setup.exe`);
