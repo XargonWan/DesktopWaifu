@@ -500,7 +500,7 @@ export class StorageManager {
 				qwenUseOptimizedDecode: await this.getSetting('tts.qwenUseOptimizedDecode', null),
 				fishApiKey: (await this.getSetting('tts.fishApiKey', '')) || (await this.getSetting('tts.apiKey', '')),
 				enabled: await this.getSetting('tts.enabled', true),
-				fishModel: await this.getSetting('tts.fishModel', 's1'),
+				fishModel: await this.getSetting('tts.fishModel', 's2-pro'),
 				fishSavedVoices: await this.getSetting('tts.fishSavedVoices', [])
 			},
 			stt: {

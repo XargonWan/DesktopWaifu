@@ -92,8 +92,8 @@ export class TtsManager {
 	kokoroDevice: KokoroDevice = 'webgpu';
 	fishApiKey = '';
 	fishVoiceId = '';
-	fishModel: 's1' | 'speech-1.5' | 'speech-1.6' = 's1';
-	fishLatency: 'normal' | 'balanced' = 'balanced';
+	fishModel: 's1' | 's2-pro' | 'speech-1.5' | 'speech-1.6' = 's2-pro';
+	fishLatency: 'low' | 'normal' | 'balanced' = 'balanced';
 	fishSampleRate = 24000;
 	qwenEndpoint = 'http://localhost:8000';
 	qwenLanguage = 'English';
@@ -559,8 +559,6 @@ export class TtsManager {
 
 	async _synthesizeFish(text: string): Promise<ChunkData> {
 		if (!this.fishApiKey) throw new Error('Fish Audio requires API key');
-		const effectiveModel = this.fishModel === 's1' ? 'speech-1.5' : this.fishModel;
-
 		let lastError: Error | null = null;
 		let audioBlob: Blob | null = null;
 		let contentType = 'audio/mpeg';
@@ -572,7 +570,7 @@ export class TtsManager {
 					text,
 					apiKey: this.fishApiKey,
 					referenceId: this.fishVoiceId || undefined,
-					model: effectiveModel,
+					model: this.fishModel,
 					format: 'mp3',
 					latency: this.fishLatency
 				});

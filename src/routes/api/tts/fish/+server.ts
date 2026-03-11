@@ -131,11 +131,12 @@ export const POST: RequestHandler = async ({ request }) => {
 				mp3_bitrate: 128,
 				chunk_length: 200,
 				normalize: true,
-				latency: (latency || 'balanced') as 'normal' | 'balanced',
+				// Fish Audio docs expose `low`, but the current SDK typings still lag behind.
+				latency: (latency || 'balanced') as any,
 				reference_id: referenceId || undefined,
 				prosody: { speed: 1.0, volume: 0.0 }
 			},
-			(model || 'speech-1.5') as any
+			(model || 's2-pro') as any
 		);
 
 		// Collect the ReadableStream into a single buffer

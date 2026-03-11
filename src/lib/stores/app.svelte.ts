@@ -188,7 +188,7 @@ let ttsKokoroVoice = $state('af_heart');
 let ttsKokoroDtype = $state<'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16'>('q4');
 let ttsKokoroDevice = $state<'webgpu' | 'wasm' | 'cpu' | 'auto'>('webgpu');
 let ttsFishVoiceId = $state('');
-let ttsFishLatency = $state<'normal' | 'balanced'>('balanced');
+let ttsFishLatency = $state<'low' | 'normal' | 'balanced'>('balanced');
 let ttsQwenEndpoint = $state('http://localhost:8000');
 let ttsQwenLanguage = $state('English');
 let ttsQwenVoiceId = $state('');
@@ -205,7 +205,7 @@ let ttsEnabled = $state(true);
 let fishApiKey = $state('');
 let kokoroReady = $state(false);
 let kokoroLoading = $state(false);
-let fishModel = $state('s1');
+let fishModel = $state('s2-pro');
 let fishSavedVoices = $state<{ id: string; name: string }[]>([]);
 
 export function getTtsSettings() {
@@ -221,7 +221,7 @@ export function getTtsSettings() {
 		get fishVoiceId() { return ttsFishVoiceId; },
 		set fishVoiceId(v: string) { ttsFishVoiceId = v; },
 		get fishLatency() { return ttsFishLatency; },
-		set fishLatency(v: 'normal' | 'balanced') { ttsFishLatency = v; },
+		set fishLatency(v: 'low' | 'normal' | 'balanced') { ttsFishLatency = v; },
 		get qwenEndpoint() { return ttsQwenEndpoint; },
 		set qwenEndpoint(v: string) { ttsQwenEndpoint = v; },
 		get qwenLanguage() { return ttsQwenLanguage; },

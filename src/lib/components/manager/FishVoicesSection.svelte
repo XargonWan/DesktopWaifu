@@ -4,7 +4,7 @@
 	let {
 		fishApiKey,
 		fishSavedVoices = $bindable(),
-		fishModel = $bindable('s1'),
+		fishModel = $bindable('s2-pro'),
 		fishVoiceId = $bindable(''),
 		fishLatency = $bindable('balanced')
 	}: {
@@ -203,20 +203,23 @@
 		<div class="sub-section">
 			<h3 class="sub-title">Engine Model</h3>
 			<select class="select-tech" onchange={(e) => fishModel = (e.target as HTMLSelectElement).value}>
-				{#each ['s1', 'speech-1.5', 'speech-1.6'] as m}
-					<option value={m} selected={fishModel === m}>{m}</option>
-				{/each}
+				<option value="s2-pro" selected={fishModel === 's2-pro'}>s2-pro (recommended)</option>
+				<option value="s1" selected={fishModel === 's1'}>s1 (legacy)</option>
+				<option value="speech-1.5" selected={fishModel === 'speech-1.5'}>speech-1.5 (legacy)</option>
+				<option value="speech-1.6" selected={fishModel === 'speech-1.6'}>speech-1.6 (legacy)</option>
 			</select>
+			<small class="hint">Fish Audio now recommends s2-pro for TTS.</small>
 		</div>
 
 		<!-- Latency -->
 		<div class="sub-section">
 			<h3 class="sub-title">Latency Mode</h3>
 			<select class="select-tech" onchange={(e) => fishLatency = (e.target as HTMLSelectElement).value}>
+				<option value="low" selected={fishLatency === 'low'}>Low</option>
 				<option value="balanced" selected={fishLatency === 'balanced'}>Balanced</option>
 				<option value="normal" selected={fishLatency === 'normal'}>Normal</option>
 			</select>
-			<small class="hint">Balanced = faster first response; Normal = higher quality</small>
+			<small class="hint">Low = lowest latency, Balanced = faster first response, Normal = highest quality</small>
 		</div>
 
 		<!-- Voice / Reference ID -->

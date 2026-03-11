@@ -21,7 +21,7 @@
 	let qwenBaseVoiceId = $state('gpt-sovits-v2pro-default');
 	let qwenWaveVoiceId = $state('mika');
 	let fishSavedVoices = $state<{ id: string; name: string }[]>([]);
-	let fishModel = $state('s1');
+	let fishModel = $state('s2-pro');
 	let fishVoiceId = $state('');
 	let fishLatency = $state('balanced');
 
@@ -59,7 +59,7 @@
 					qwenBaseVoiceId = state.tts.qwenBaseVoiceId || 'gpt-sovits-v2pro-default';
 					qwenWaveVoiceId = state.tts.qwenWaveVoiceId || 'mika';
 					fishSavedVoices = state.tts.fishSavedVoices || [];
-					fishModel = state.tts.fishModel || 's1';
+					fishModel = state.tts.fishModel || 's2-pro';
 					fishVoiceId = state.tts.fishVoiceId || '';
 					fishLatency = state.tts.fishLatency || 'balanced';
 				}

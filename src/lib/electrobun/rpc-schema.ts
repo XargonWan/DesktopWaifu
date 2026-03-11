@@ -1,5 +1,5 @@
-export type FishLatencyMode = 'normal' | 'balanced';
-export type FishBackendModel = 's1' | 'speech-1.5' | 'speech-1.6';
+export type FishLatencyMode = 'low' | 'normal' | 'balanced';
+export type FishBackendModel = 's1' | 's2-pro' | 'speech-1.5' | 'speech-1.6';
 export type FishAudioFormat = 'mp3' | 'wav' | 'opus' | 'pcm';
 
 export interface FishModelInfo {

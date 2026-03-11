@@ -222,7 +222,7 @@ async function synthesize(params: FishSynthesizeParams) {
 			reference_id: params.referenceId || undefined,
 			prosody: { speed: 1.0, volume: 0.0 }
 		},
-		(params.model || 'speech-1.5') as Backends
+		(params.model || 's2-pro') as Backends
 	);
 	const audio = await collectAudioBuffer(stream);
 	return {
@@ -262,7 +262,7 @@ function createRealtimeSession(
 			early_stop_threshold: 1.0
 		},
 		queue.stream(),
-		(params.model || 's1') as Backends
+		(params.model || 's2-pro') as Backends
 	).then((connection) => {
 		let settled = false;
 		const settle = (fn: () => void) => {

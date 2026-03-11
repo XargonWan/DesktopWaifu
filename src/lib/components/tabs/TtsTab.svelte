@@ -500,12 +500,24 @@
 
 	<div class="control-group">
 		<div class="control-label">Engine Model</div>
-		<select class="select-tech" onchange={(e) => tts.fishModel = (e.target as HTMLSelectElement).value}>
-			{#each ['s1', 'speech-1.5', 'speech-1.6'] as m}
-				<option value={m} selected={tts.fishModel === m}>{m}</option>
-			{/each}
-		</select>
-	</div>
+			<select class="select-tech" onchange={(e) => tts.fishModel = (e.target as HTMLSelectElement).value}>
+				<option value="s2-pro" selected={tts.fishModel === 's2-pro'}>s2-pro (recommended)</option>
+				<option value="s1" selected={tts.fishModel === 's1'}>s1 (legacy)</option>
+				<option value="speech-1.5" selected={tts.fishModel === 'speech-1.5'}>speech-1.5 (legacy)</option>
+				<option value="speech-1.6" selected={tts.fishModel === 'speech-1.6'}>speech-1.6 (legacy)</option>
+			</select>
+			<small class="hint">Fish Audio now recommends s2-pro for TTS.</small>
+		</div>
+
+		<div class="control-group">
+			<div class="control-label">Latency Mode</div>
+			<select class="select-tech" bind:value={tts.fishLatency}>
+				<option value="low">Low</option>
+				<option value="balanced">Balanced</option>
+				<option value="normal">Normal</option>
+			</select>
+			<small class="hint">Low = lowest latency, Balanced = faster first response, Normal = highest quality.</small>
+		</div>
 {/if}
 
 {#if showQwenOptions}
