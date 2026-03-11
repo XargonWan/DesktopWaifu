@@ -33,6 +33,7 @@ export default {
 		},
 	},
 	release: {
+		baseUrl: 'https://github.com/xsploit/DesktopWaifu/releases/latest/download',
 		generatePatch: false,
 	},
 } satisfies ElectrobunConfig;
