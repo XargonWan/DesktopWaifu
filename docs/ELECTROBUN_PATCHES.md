@@ -79,3 +79,21 @@ Then reapplies the local source overrides from `patches/electrobun/` during:
 - `bun install`
 
 This keeps the repo GitHub-safe while still preserving the Electrobun changes the app needs.
+
+## Runtime binary overrides
+
+Some fixes are not just source-level patches. DesktopWaifu also ships a repo-owned patched Windows native core binary:
+
+- `patches/electrobun/win-core/libNativeWrapper.dll`
+
+This is copied into:
+
+- `node_modules/electrobun/dist-win-x64/libNativeWrapper.dll`
+
+during `bun install`.
+
+Why this is necessary:
+
+- the published Electrobun package ships prebuilt Windows core binaries
+- source patching `src/native/win/nativeWrapper.cpp` alone does not rebuild those binaries in CI
+- without this binary override, GitHub release builds fall back to the stock `libNativeWrapper.dll` and lose the DesktopWaifu DPI/WebView2/hit-test fixes
